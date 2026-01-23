@@ -1,0 +1,32 @@
+다음 명령어를 PowerShell에서 한 줄씩 복사해서 실행하세요:
+
+===========================================
+1단계: 프로젝트 폴더로 이동
+===========================================
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+===========================================
+2단계: 잠금 파일 삭제 (필요시)
+===========================================
+Remove-Item -Force ".git\config.lock" -ErrorAction SilentlyContinue
+Remove-Item -Force ".git\index.lock" -ErrorAction SilentlyContinue
+
+===========================================
+3단계: Git 사용자 정보 설정
+===========================================
+git config user.name "Yeongwoo-seo"
+git config user.email "tlsckd132@gmail.com"
+
+===========================================
+4단계: 파일 추가 및 커밋
+===========================================
+git add .
+git commit -m "Initial commit: Cookka recipe management app with Firebase integration"
+
+===========================================
+5단계: GitHub 저장소 생성 후 연결
+===========================================
+# GitHub에서 저장소 생성 후 아래 명령어 실행 (YOUR_USERNAME을 본인 GitHub 사용자명으로 변경)
+# git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+# git branch -M main
+# git push -u origin main

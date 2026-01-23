@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "npm",
+            "script": "dev",
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*",
+                    "endsPattern": "(.*Ready.*|.*Local:.*|.*started server.*)"
+                }
+            },
+            "label": "npm: dev",
+            "detail": "next dev -p 8080",
+            "isBackground": true
+        }
+    ]
+}

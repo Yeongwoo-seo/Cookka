@@ -1,0 +1,7 @@
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+git config user.name "Yeongwoo-seo"
+git config user.email "tlsckd132@gmail.com"
+
+git add .
+git commit -m "Initial commit: Cookka recipe management app with Firebase integration"
