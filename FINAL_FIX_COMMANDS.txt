@@ -1,0 +1,22 @@
+다음 명령어를 PowerShell에서 순서대로 실행하세요:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# 1. 잠금 파일 삭제
+Remove-Item -Force ".git\index.lock" -ErrorAction SilentlyContinue
+Remove-Item -Force ".git\config.lock" -ErrorAction SilentlyContinue
+
+# 2. Git 대소문자 구분 활성화
+git config core.ignorecase false
+
+# 3. Git 캐시에서 모든 파일 제거
+git rm -r --cached .
+
+# 4. 모든 파일 다시 추가 (대소문자 포함)
+git add .
+
+# 5. 커밋 (한글 인코딩 문제 방지를 위해 영어로)
+git commit -m "Fix: Force case sensitivity and change import to relative path"
+
+# 6. 푸시
+git push origin master

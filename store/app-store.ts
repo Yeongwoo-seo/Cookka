@@ -23,7 +23,7 @@ import {
   saveIngredientPrice as saveIngredientPriceToFirestore,
   getTeam,
   saveTeam as saveTeamToFirestore,
-} from '@/lib/firestore';
+} from '../lib/firestore';
 
 interface IngredientPrice {
   name: string;
