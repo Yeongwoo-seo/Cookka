@@ -78,7 +78,9 @@ export async function GET(request: NextRequest) {
             if (firstComment && firstComment.textDisplay) {
               pinnedComment = firstComment.textDisplay;
               console.log('✅ 고정 댓글 선택 (첫 번째 댓글, 좋아요:', firstComment.likeCount || 0, ')');
-              console.log('댓글 내용 (처음 100자):', pinnedComment.substring(0, 100));
+              if (pinnedComment) {
+                console.log('댓글 내용 (처음 100자):', pinnedComment.substring(0, 100));
+              }
             }
             
             // 방법 2: 좋아요가 가장 많은 댓글 찾기 (더 나은 방법일 수 있음)
@@ -101,7 +103,9 @@ export async function GET(request: NextRequest) {
             if (bestComment && maxLikes > (firstComment?.likeCount || 0)) {
               pinnedComment = bestComment;
               console.log('✅ 고정 댓글 선택 (좋아요가 가장 많은 댓글, 좋아요 수:', maxLikes, ')');
-              console.log('댓글 내용 (처음 100자):', pinnedComment.substring(0, 100));
+              if (pinnedComment) {
+                console.log('댓글 내용 (처음 100자):', pinnedComment.substring(0, 100));
+              }
             }
           } else {
             console.log('⚠️ 댓글이 없음');

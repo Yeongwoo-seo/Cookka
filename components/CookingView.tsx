@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { DailyMenu } from '@/types/daily-menu';
-import { Recipe } from '@/types/recipe';
+import { Recipe, RecipeStep } from '@/types/recipe';
 
 interface CookingViewProps {
   dailyMenu: DailyMenu;
