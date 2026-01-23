@@ -34,7 +34,11 @@ yarn-error.log*
 next-env.d.ts
 
 # Flutter (old)
-lib/
+# lib/ - 주석 처리: Next.js lib/ 폴더 필요
+lib/main.dart
+lib/models/
+lib/theme/
+lib/views/
 pubspec.yaml
 analysis_options.yaml
 Cookka/
