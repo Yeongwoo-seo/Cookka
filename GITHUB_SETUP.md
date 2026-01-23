@@ -36,7 +36,7 @@ Git 저장소 초기화에 문제가 있어 수동으로 진행해야 합니다.
 
 5. **원격 저장소 연결 및 푸시**
    ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+   git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
    git branch -M main
    git push -u origin main
    ```
@@ -105,7 +105,7 @@ git check-ignore .env.local
 ### "remote origin already exists" 오류
 ```bash
 git remote remove origin
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 ```
 
 ### 인증 오류

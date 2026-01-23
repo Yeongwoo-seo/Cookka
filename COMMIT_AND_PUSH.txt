@@ -1,0 +1,15 @@
+다음 명령어를 PowerShell에서 실행하세요:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# 잠금 파일 삭제
+Remove-Item -Force ".git\index.lock" -ErrorAction SilentlyContinue
+
+# 변경사항 추가
+git add tsconfig.json
+
+# 커밋
+git commit -m "Fix: Add baseUrl to tsconfig.json for Vercel path resolution"
+
+# 푸시
+git push origin master

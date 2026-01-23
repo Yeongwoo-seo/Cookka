@@ -23,8 +23,8 @@ GitHub 저장소 푸시 단계
 ===========================================
 PowerShell에서 다음 명령어 실행:
 
-# 원격 저장소 추가 (YOUR_USERNAME을 본인 GitHub 사용자명으로 변경)
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+# 원격 저장소 추가
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 
 # 브랜치를 main으로 변경 (현재 master 브랜치)
 git branch -M main

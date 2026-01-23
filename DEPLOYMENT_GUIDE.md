@@ -15,7 +15,7 @@ Vercel은 Next.js를 만든 회사에서 제공하는 플랫폼으로, Next.js �
 
 2. **프로젝트 연결**
    - "Add New Project" 클릭
-   - GitHub 저장소 선택 또는 직접 업로드
+   - GitHub 저장소 선택: https://github.com/Yeongwoo-seo/Cookka
    - 프로젝트 이름: `cookka` (또는 원하는 이름)
 
 3. **환경 변수 설정**
@@ -99,7 +99,7 @@ Firebase를 이미 사용하고 있으므로 Firebase Hosting을 사용할 수�
 
 2. **프로젝트 연결**
    - "Add new site" > "Import an existing project"
-   - GitHub 저장소 선택
+   - GitHub 저장소 선택: https://github.com/Yeongwoo-seo/Cookka
 
 3. **빌드 설정**
    - Build command: `npm run build`

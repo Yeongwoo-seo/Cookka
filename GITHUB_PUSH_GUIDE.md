@@ -16,12 +16,12 @@
 GitHub에서 제공하는 명령어를 실행하세요. 예시:
 
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 git branch -M main
 git push -u origin main
 ```
 
-**주의**: `YOUR_USERNAME`을 본인의 GitHub 사용자명으로 변경하세요.
+**참고**: 저장소 URL: https://github.com/Yeongwoo-seo/Cookka
 
 ## 3. 인증 방법
 
@@ -49,7 +49,7 @@ cat ~/.ssh/id_ed25519.pub
 
 ```bash
 # 원격 저장소 추가 (GitHub에서 제공하는 URL 사용)
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 
 # 기본 브랜치를 main으로 설정
 git branch -M main
@@ -81,7 +81,7 @@ git push
 ### "remote origin already exists" 오류
 ```bash
 git remote remove origin
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 ```
 
 ### 인증 오류

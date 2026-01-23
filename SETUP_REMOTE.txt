@@ -16,8 +16,8 @@ cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
 # 현재 원격 저장소 확인
 git remote -v
 
-# 원격 저장소가 없다면 추가 (YOUR_USERNAME을 본인 GitHub 사용자명으로 변경)
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+# 원격 저장소가 없다면 추가
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 
 # 원격 저장소 확인
 git remote -v
@@ -64,8 +64,8 @@ cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
 # 원격 저장소 제거 (이미 있다면)
 git remote remove origin
 
-# 원격 저장소 추가 (YOUR_USERNAME 변경 필요)
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+# 원격 저장소 추가
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 
 # 원격 저장소 확인
 git remote -v

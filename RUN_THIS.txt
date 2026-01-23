@@ -26,7 +26,7 @@ git commit -m "Initial commit: Cookka recipe management app with Firebase integr
 ===========================================
 5단계: GitHub 저장소 생성 후 연결
 ===========================================
-# GitHub에서 저장소 생성 후 아래 명령어 실행 (YOUR_USERNAME을 본인 GitHub 사용자명으로 변경)
-# git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+# GitHub에서 저장소 생성 후 아래 명령어 실행
+# git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 # git branch -M main
 # git push -u origin main

@@ -48,8 +48,8 @@ cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
 # 기존 원격 저장소 제거
 git remote remove origin
 
-# 원격 저장소 다시 추가 (YOUR_USERNAME 변경)
-git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+# 원격 저장소 다시 추가
+git remote add origin https://github.com/Yeongwoo-seo/Cookka.git
 
 # 브랜치 이름 확인 및 변경
 git branch  # master인지 확인
