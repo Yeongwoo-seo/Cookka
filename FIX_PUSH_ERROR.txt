@@ -1,0 +1,82 @@
+===========================================
+GitHub 푸시 오류 해결 방법
+===========================================
+
+오류: "error: failed to push some refs to 'origin'"
+
+이 오류는 보통 다음 이유로 발생합니다:
+1. GitHub 저장소에 이미 파일이 있음 (README 등)
+2. 브랜치 이름이 다름 (master vs main)
+3. 히스토리가 충돌함
+
+===========================================
+해결 방법 1: 강제 푸시 (원격 저장소가 비어있지 않을 때)
+===========================================
+⚠️ 주의: 이 방법은 원격 저장소의 기존 내용을 덮어씁니다.
+
+PowerShell에서 실행:
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+git push -u origin master --force
+
+또는 main 브랜치로 푸시하려면:
+git branch -M main
+git push -u origin main --force
+
+===========================================
+해결 방법 2: 원격 저장소 내용 병합 (권장)
+===========================================
+원격 저장소의 내용을 가져와서 병합:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# 원격 저장소 내용 가져오기
+git fetch origin
+
+# 원격 저장소의 main 브랜치와 병합
+git pull origin main --allow-unrelated-histories
+
+# 또는 master 브랜치로 푸시
+git push -u origin master
+
+===========================================
+해결 방법 3: 원격 저장소 재설정
+===========================================
+원격 저장소를 다시 설정:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# 기존 원격 저장소 제거
+git remote remove origin
+
+# 원격 저장소 다시 추가 (YOUR_USERNAME 변경)
+git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+
+# 브랜치 이름 확인 및 변경
+git branch  # master인지 확인
+git branch -M main  # main으로 변경 (또는 master 유지)
+
+# 푸시
+git push -u origin main --force
+# 또는
+git push -u origin master --force
+
+===========================================
+가장 안전한 방법: GitHub Desktop 사용
+===========================================
+1. GitHub Desktop 열기
+2. File > Add Local Repository
+3. 프로젝트 폴더 선택
+4. "Publish repository" 클릭
+5. GitHub Desktop이 자동으로 처리
+
+===========================================
+브랜치 이름 확인
+===========================================
+현재 브랜치: master
+
+GitHub 저장소가 main을 기본으로 사용한다면:
+git branch -M main
+git push -u origin main --force
+
+master를 유지하려면:
+git push -u origin master --force

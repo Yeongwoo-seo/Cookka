@@ -1,0 +1,44 @@
+===========================================
+GitHub 푸시 최종 단계
+===========================================
+
+✅ 원격 저장소 설정 완료:
+   origin  https://github.com/Yeongwoo-seo/Cookka.git
+
+===========================================
+푸시 명령어
+===========================================
+PowerShell에서 실행:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# master 브랜치로 푸시
+git push -u origin master
+
+===========================================
+만약 오류가 발생한다면
+===========================================
+
+1. GitHub 저장소에 이미 파일이 있는 경우:
+   git push -u origin master --force
+
+2. 브랜치 이름이 다른 경우:
+   # 현재 브랜치 확인
+   git branch
+   
+   # main 브랜치로 푸시하려면
+   git push -u origin main
+
+3. 인증 오류가 발생하면:
+   - Personal Access Token 사용
+   - GitHub > Settings > Developer settings > Personal access tokens
+   - "Generate new token (classic)" 클릭
+   - 권한: repo 선택
+   - 토큰 생성 후 푸시 시 비밀번호 대신 사용
+
+===========================================
+푸시 성공 후
+===========================================
+- https://github.com/Yeongwoo-seo/Cookka 에서 코드 확인 가능
+- Vercel 등 배포 플랫폼에 연결 가능
+- 팀원들과 공유 가능

@@ -1,0 +1,15 @@
+Git 캐시 초기화 명령어 (PowerShell에서 실행):
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# Git 캐시에서 모든 파일 제거
+git rm -r --cached .
+
+# 모든 파일 다시 추가
+git add .
+
+# 커밋
+git commit -m "Fix: Force update file case for Vercel build"
+
+# 푸시
+git push origin master

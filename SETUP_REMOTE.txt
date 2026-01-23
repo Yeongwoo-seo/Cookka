@@ -1,0 +1,74 @@
+===========================================
+원격 저장소 설정 및 푸시 가이드
+===========================================
+
+현재 문제:
+- 원격 저장소 'origin'이 설정되지 않음
+- 브랜치 이름 변경 오류
+
+===========================================
+1단계: 원격 저장소 확인 및 설정
+===========================================
+PowerShell에서 실행:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# 현재 원격 저장소 확인
+git remote -v
+
+# 원격 저장소가 없다면 추가 (YOUR_USERNAME을 본인 GitHub 사용자명으로 변경)
+git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+
+# 원격 저장소 확인
+git remote -v
+
+===========================================
+2단계: 브랜치 이름 확인
+===========================================
+# 현재 브랜치 확인
+git branch
+
+# master 브랜치를 main으로 변경하려면 (선택사항)
+# git branch -m master main
+
+===========================================
+3단계: GitHub에 푸시
+===========================================
+# master 브랜치로 푸시
+git push -u origin master
+
+# 또는 main 브랜치로 푸시 (브랜치를 변경했다면)
+# git push -u origin main
+
+===========================================
+만약 GitHub 저장소가 이미 파일이 있다면
+===========================================
+# 강제 푸시 (주의: 원격 저장소 내용 덮어씀)
+git push -u origin master --force
+
+===========================================
+인증 문제 해결
+===========================================
+Personal Access Token 사용:
+1. GitHub > Settings > Developer settings > Personal access tokens
+2. "Generate new token (classic)" 클릭
+3. 권한: repo 선택
+4. 토큰 생성 후 복사
+5. 푸시 시 비밀번호 대신 토큰 사용
+
+===========================================
+전체 명령어 (한 번에 실행)
+===========================================
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+
+# 원격 저장소 제거 (이미 있다면)
+git remote remove origin
+
+# 원격 저장소 추가 (YOUR_USERNAME 변경 필요)
+git remote add origin https://github.com/YOUR_USERNAME/cookka.git
+
+# 원격 저장소 확인
+git remote -v
+
+# 푸시
+git push -u origin master
