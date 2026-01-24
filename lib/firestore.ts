@@ -14,7 +14,7 @@ import {
   QuerySnapshot,
   DocumentData,
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './firebase';
+import { getDb, isFirebaseConfigured } from './firebase';
 import { Recipe } from '@/types/recipe';
 import { InventoryItem, PurchaseHistory } from '@/types/inventory';
 import { DailyMenu } from '@/types/daily-menu';
@@ -37,7 +37,7 @@ const timestampToDate = (timestamp: Timestamp | Date): Date => {
 
 export const getRecipes = async (): Promise<Recipe[]> => {
   try {
-    const recipesRef = collection(db, 'recipes');
+    const recipesRef = collection(getDb(), 'recipes');
     const snapshot = await getDocs(recipesRef);
     
     return snapshot.docs.map((doc) => {
@@ -65,7 +65,7 @@ export const getRecipes = async (): Promise<Recipe[]> => {
 
 export const saveRecipe = async (recipe: Recipe): Promise<void> => {
   try {
-    const recipeRef = doc(db, 'recipes', recipe.id);
+    const recipeRef = doc(getDb(), 'recipes', recipe.id);
     const recipeData = {
       ...recipe,
       createdAt: dateToTimestamp(recipe.createdAt),
@@ -80,7 +80,7 @@ export const saveRecipe = async (recipe: Recipe): Promise<void> => {
 
 export const deleteRecipe = async (recipeId: string): Promise<void> => {
   try {
-    const recipeRef = doc(db, 'recipes', recipeId);
+    const recipeRef = doc(getDb(), 'recipes', recipeId);
     await deleteDoc(recipeRef);
   } catch (error) {
     console.error('레시피 삭제 오류:', error);
@@ -91,7 +91,7 @@ export const deleteRecipe = async (recipeId: string): Promise<void> => {
 export const subscribeRecipes = (
   callback: (recipes: Recipe[]) => void
 ): (() => void) => {
-  const recipesRef = collection(db, 'recipes');
+  const recipesRef = collection(getDb(), 'recipes');
   const unsubscribe = onSnapshot(recipesRef, (snapshot) => {
     const recipes = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -119,7 +119,7 @@ export const subscribeRecipes = (
 
 export const getInventory = async (): Promise<InventoryItem[]> => {
   try {
-    const inventoryRef = collection(db, 'inventory');
+    const inventoryRef = collection(getDb(), 'inventory');
     const snapshot = await getDocs(inventoryRef);
     
     return snapshot.docs.map((doc) => {
@@ -143,7 +143,7 @@ export const getInventory = async (): Promise<InventoryItem[]> => {
 
 export const saveInventoryItem = async (item: InventoryItem): Promise<void> => {
   try {
-    const itemRef = doc(db, 'inventory', item.id);
+    const itemRef = doc(getDb(), 'inventory', item.id);
     const itemData = {
       ...item,
       lastUpdated: dateToTimestamp(item.lastUpdated),
@@ -162,7 +162,7 @@ export const saveInventoryItem = async (item: InventoryItem): Promise<void> => {
 
 export const deleteInventoryItem = async (itemId: string): Promise<void> => {
   try {
-    const itemRef = doc(db, 'inventory', itemId);
+    const itemRef = doc(getDb(), 'inventory', itemId);
     await deleteDoc(itemRef);
   } catch (error) {
     console.error('재고 삭제 오류:', error);
@@ -173,7 +173,7 @@ export const deleteInventoryItem = async (itemId: string): Promise<void> => {
 export const subscribeInventory = (
   callback: (inventory: InventoryItem[]) => void
 ): (() => void) => {
-  const inventoryRef = collection(db, 'inventory');
+  const inventoryRef = collection(getDb(), 'inventory');
   const unsubscribe = onSnapshot(inventoryRef, (snapshot) => {
     const inventory = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -197,7 +197,7 @@ export const subscribeInventory = (
 
 export const getDailyMenus = async (): Promise<Map<string, DailyMenu>> => {
   try {
-    const menusRef = collection(db, 'dailyMenus');
+    const menusRef = collection(getDb(), 'dailyMenus');
     const snapshot = await getDocs(menusRef);
     const menusMap = new Map<string, DailyMenu>();
     
@@ -222,7 +222,7 @@ export const getDailyMenus = async (): Promise<Map<string, DailyMenu>> => {
 export const saveDailyMenu = async (menu: DailyMenu): Promise<void> => {
   try {
     const dateKey = format(menu.date, 'yyyy-MM-dd');
-    const menuRef = doc(db, 'dailyMenus', dateKey);
+    const menuRef = doc(getDb(), 'dailyMenus', dateKey);
     const menuData = {
       date: dateToTimestamp(menu.date),
       recipes: menu.recipes,
@@ -260,7 +260,7 @@ export const subscribeDailyMenus = (
 
 export const getBusinessMetrics = async (): Promise<BusinessMetrics | null> => {
   try {
-    const metricsRef = doc(db, 'businessMetrics', 'current');
+    const metricsRef = doc(getDb(), 'businessMetrics', 'current');
     const docSnap = await getDoc(metricsRef);
     
     if (docSnap.exists()) {
@@ -279,7 +279,7 @@ export const getBusinessMetrics = async (): Promise<BusinessMetrics | null> => {
 
 export const saveBusinessMetrics = async (metrics: BusinessMetrics): Promise<void> => {
   try {
-    const metricsRef = doc(db, 'businessMetrics', 'current');
+    const metricsRef = doc(getDb(), 'businessMetrics', 'current');
     const metricsData = {
       ...metrics,
       lastUpdated: dateToTimestamp(metrics.lastUpdated),
@@ -301,7 +301,7 @@ export interface IngredientPrice {
 
 export const getIngredientPrices = async (): Promise<Map<string, IngredientPrice>> => {
   try {
-    const pricesRef = collection(db, 'ingredientPrices');
+    const pricesRef = collection(getDb(), 'ingredientPrices');
     const snapshot = await getDocs(pricesRef);
     const pricesMap = new Map<string, IngredientPrice>();
     
@@ -321,7 +321,7 @@ export const getIngredientPrices = async (): Promise<Map<string, IngredientPrice
 export const saveIngredientPrice = async (name: string, unit: string, costPerUnit: number): Promise<void> => {
   try {
     const key = `${name}_${unit}`;
-    const priceRef = doc(db, 'ingredientPrices', key);
+    const priceRef = doc(getDb(), 'ingredientPrices', key);
     await setDoc(priceRef, { name, unit, costPerUnit }, { merge: true });
   } catch (error) {
     console.error('재료 가격 저장 오류:', error);
@@ -333,7 +333,7 @@ export const saveIngredientPrice = async (name: string, unit: string, costPerUni
 
 export const getTeam = async (teamId: string): Promise<Team | null> => {
   try {
-    const teamRef = doc(db, 'teams', teamId);
+    const teamRef = doc(getDb(), 'teams', teamId);
     const docSnap = await getDoc(teamRef);
     
     if (docSnap.exists()) {
@@ -357,7 +357,7 @@ export const getTeam = async (teamId: string): Promise<Team | null> => {
 
 export const saveTeam = async (team: Team): Promise<void> => {
   try {
-    const teamRef = doc(db, 'teams', team.id);
+    const teamRef = doc(getDb(), 'teams', team.id);
     const teamData = {
       ...team,
       members: team.members.map((member) => ({

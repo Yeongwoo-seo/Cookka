@@ -147,7 +147,21 @@ const getStorageLazy = (): FirebaseStorage => {
   return _storage;
 };
 
-// 기존 API 유지 (Proxy를 사용하여 lazy access)
+// 실제 인스턴스를 반환하는 getter 함수들 (firestore.ts에서 사용)
+export const getDb = (): Firestore => {
+  return getDbLazy();
+};
+
+export const getAuth = (): Auth => {
+  return getAuthLazy();
+};
+
+export const getStorageInstance = (): FirebaseStorage => {
+  return getStorageLazy();
+};
+
+// 하위 호환성을 위한 export (Proxy 사용 - 속성 접근용)
+// 주의: collection(db, ...) 같은 함수 호출에는 getDb()를 사용해야 함
 export const db = new Proxy({} as Firestore, {
   get(_target, prop) {
     return (getDbLazy() as any)[prop];
