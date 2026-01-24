@@ -501,7 +501,12 @@ export default function TodayMenuView({
 
       {/* 플로팅 요리 시작 버튼 - 네비게이션 바로 위 */}
       {dailyMenu.recipes.length > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-50 px-4">
+        <div 
+          className="fixed left-0 right-0 z-50 px-4"
+          style={{
+            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+          }}
+        >
           <div className="max-w-4xl mx-auto">
             <button
               onClick={onStartCooking}

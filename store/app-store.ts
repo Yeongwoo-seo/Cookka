@@ -5,25 +5,7 @@ import { BusinessMetrics, sampleBusinessMetrics } from '@/types/business-metrics
 import { Team, User } from '@/types/team';
 import { DailyMenu } from '@/types/daily-menu';
 import { format } from 'date-fns';
-import {
-  getRecipes,
-  saveRecipe as saveRecipeToFirestore,
-  deleteRecipe as deleteRecipeFromFirestore,
-  subscribeRecipes,
-  getInventory,
-  saveInventoryItem as saveInventoryItemToFirestore,
-  deleteInventoryItem as deleteInventoryItemFromFirestore,
-  subscribeInventory,
-  getDailyMenus,
-  saveDailyMenu as saveDailyMenuToFirestore,
-  subscribeDailyMenus,
-  getBusinessMetrics,
-  saveBusinessMetrics as saveBusinessMetricsToFirestore,
-  getIngredientPrices,
-  saveIngredientPrice as saveIngredientPriceToFirestore,
-  getTeam,
-  saveTeam as saveTeamToFirestore,
-} from '../lib/firestore';
+// Firebase 함수는 동적으로 import하여 서버 사이드에서의 실행 방지
 
 interface IngredientPrice {
   name: string;
@@ -76,7 +58,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
     // Firebase에 저장
     try {
-      await saveRecipeToFirestore(recipe);
+      if (typeof window !== 'undefined') {
+        const { saveRecipe } = await import('../lib/firestore');
+        await saveRecipe(recipe);
+      }
     } catch (error) {
       console.error('레시피 업데이트 실패:', error);
     }
@@ -88,7 +73,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
     // Firebase에 저장
     try {
-      await saveRecipeToFirestore(recipe);
+      if (typeof window !== 'undefined') {
+        const { saveRecipe } = await import('../lib/firestore');
+        await saveRecipe(recipe);
+      }
     } catch (error) {
       console.error('레시피 추가 실패:', error);
     }
@@ -100,7 +88,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
     // Firebase에서 삭제
     try {
-      await deleteRecipeFromFirestore(recipeId);
+      if (typeof window !== 'undefined') {
+        const { deleteRecipe } = await import('../lib/firestore');
+        await deleteRecipe(recipeId);
+      }
     } catch (error) {
       console.error('레시피 삭제 실패:', error);
     }
@@ -112,7 +103,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
     // Firebase에 저장
     try {
-      await saveInventoryItemToFirestore(item);
+      if (typeof window !== 'undefined') {
+        const { saveInventoryItem } = await import('../lib/firestore');
+        await saveInventoryItem(item);
+      }
     } catch (error) {
       console.error('재고 업데이트 실패:', error);
     }
@@ -124,7 +118,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
     // Firebase에 저장
     try {
-      await saveInventoryItemToFirestore(item);
+      if (typeof window !== 'undefined') {
+        const { saveInventoryItem } = await import('../lib/firestore');
+        await saveInventoryItem(item);
+      }
     } catch (error) {
       console.error('재고 추가 실패:', error);
     }
@@ -136,7 +133,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
     // Firebase에서 삭제
     try {
-      await deleteInventoryItemFromFirestore(itemId);
+      if (typeof window !== 'undefined') {
+        const { deleteInventoryItem } = await import('../lib/firestore');
+        await deleteInventoryItem(itemId);
+      }
     } catch (error) {
       console.error('재고 삭제 실패:', error);
     }
@@ -165,7 +165,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     // Firebase에 저장
     try {
-      await saveIngredientPriceToFirestore(name, unit, costPerUnit);
+      if (typeof window !== 'undefined') {
+        const { saveIngredientPrice } = await import('../lib/firestore');
+        await saveIngredientPrice(name, unit, costPerUnit);
+      }
     } catch (error) {
       console.error('재료 가격 업데이트 실패:', error);
     }
@@ -180,7 +183,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     // Firebase에 저장
     try {
-      await saveDailyMenuToFirestore(menu);
+      if (typeof window !== 'undefined') {
+        const { saveDailyMenu } = await import('../lib/firestore');
+        await saveDailyMenu(menu);
+      }
     } catch (error) {
       console.error('일일 메뉴 저장 실패:', error);
     }
@@ -230,7 +236,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadFromFirebase: async () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
     try {
+      // Firebase 함수 동적 import
+      const {
+        getRecipes,
+        getInventory,
+        getDailyMenus,
+        getBusinessMetrics,
+        getIngredientPrices,
+      } = await import('../lib/firestore');
+      
       // Firebase에서 데이터 로드
       const [recipes, inventory, dailyMenus, businessMetrics, ingredientPrices] = await Promise.all([
         getRecipes(),
@@ -256,26 +274,45 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   syncWithFirebase: () => {
-    // 실시간 동기화 설정
-    const unsubscribeRecipes = subscribeRecipes((recipes) => {
-      set({ recipes });
-    });
+    if (typeof window === 'undefined') {
+      return () => {}; // 서버 사이드에서는 빈 함수 반환
+    }
+    
+    // 실시간 동기화 설정 (동적 import)
+    const unsubscribers: Array<() => void> = [];
+    
+    (async () => {
+      try {
+        const {
+          subscribeRecipes,
+          subscribeInventory,
+          subscribeDailyMenus,
+        } = await import('../lib/firestore');
+        
+        const unsubRecipes = subscribeRecipes((recipes) => {
+          set({ recipes });
+        });
+        unsubscribers.push(unsubRecipes);
 
-    const unsubscribeInventory = subscribeInventory((inventory) => {
-      set({ inventory });
-    });
+        const unsubInventory = subscribeInventory((inventory) => {
+          set({ inventory });
+        });
+        unsubscribers.push(unsubInventory);
 
-    const unsubscribeDailyMenus = subscribeDailyMenus((dailyMenus) => {
-      set({ dailyMenuHistory: dailyMenus });
-    });
+        const unsubDailyMenus = subscribeDailyMenus((dailyMenus) => {
+          set({ dailyMenuHistory: dailyMenus });
+        });
+        unsubscribers.push(unsubDailyMenus);
 
-    set({ isFirebaseEnabled: true });
+        set({ isFirebaseEnabled: true });
+      } catch (error) {
+        console.error('Firebase 실시간 동기화 설정 실패:', error);
+      }
+    })();
 
     // 정리 함수는 컴포넌트에서 호출해야 함
     return () => {
-      unsubscribeRecipes();
-      unsubscribeInventory();
-      unsubscribeDailyMenus();
+      unsubscribers.forEach((unsub) => unsub());
     };
   },
 }));

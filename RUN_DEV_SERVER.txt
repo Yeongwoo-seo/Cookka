@@ -1,0 +1,22 @@
+개발 서버 실행 방법:
+
+방법 1: cmd 사용 (가장 간단)
+1. Win + R 누르기
+2. cmd 입력 후 Enter
+3. 다음 명령어 실행:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+npm run dev
+
+방법 2: PowerShell에서 npm.cmd 사용
+PowerShell에서 다음 명령어 실행:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+npm.cmd run dev
+
+방법 3: PowerShell 실행 정책 변경
+PowerShell을 관리자 권한으로 실행한 후:
+
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+npm run dev

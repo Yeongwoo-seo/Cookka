@@ -594,7 +594,10 @@ export default function InventoryView() {
       {/* 재고 등록 플로팅 버튼 */}
       <button
         onClick={() => setIsAddModalOpen(true)}
-        className="fixed bottom-24 right-6 z-50 w-14 h-14 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center justify-center"
+        className="fixed right-6 z-50 w-14 h-14 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center justify-center"
+        style={{
+          bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+        }}
         title="재고 등록"
       >
         <svg

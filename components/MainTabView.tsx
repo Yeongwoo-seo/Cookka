@@ -23,7 +23,7 @@ export default function MainTabView() {
   return (
     <div className="flex flex-col h-screen" style={{ backgroundColor: '#FAFAFB' }}>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white shadow-sm border-b border-gray-200" style={{ paddingTop: 'var(--safe-area-inset-top)' }}>
         <div className="max-w-7xl mx-auto px-4 py-4">
           <img 
             src="/cookka_logo.png" 
@@ -34,7 +34,7 @@ export default function MainTabView() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(70px + var(--safari-address-bar-height, 44px) + var(--safe-area-inset-bottom))' }}>
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'recipes' && <RecipeBoardView />}
         {activeTab === 'inventory' && <InventoryView />}
@@ -43,21 +43,27 @@ export default function MainTabView() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4">
+      <nav 
+        className="bg-white border-t border-gray-200 fixed left-0 right-0 z-50"
+        style={{ 
+          bottom: 'var(--safari-address-bar-height, 44px)',
+          paddingBottom: 'calc(0.5rem + var(--safe-area-inset-bottom))'
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-2 sm:px-4">
           <div className="flex justify-around">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center py-3 px-4 transition-colors ${
+                className={`flex flex-col items-center py-2 px-2 sm:py-3 sm:px-4 transition-colors ${
                   activeTab === tab.id
                     ? 'text-[#4D99CC] border-t-2 border-[#4D99CC]'
                     : 'text-gray-500 hover:text-[#1A1A1A]'
                 }`}
               >
-                <span className="text-xl mb-1">{tab.icon}</span>
-                <span className="text-xs font-medium">{tab.label}</span>
+                <span className="text-lg sm:text-xl mb-0.5 sm:mb-1">{tab.icon}</span>
+                <span className="text-[10px] sm:text-xs font-medium">{tab.label}</span>
               </button>
             ))}
           </div>

@@ -147,8 +147,16 @@ export const subscribeRecipes = (
 // ============ 재고 관련 ============
 
 export const getInventory = async (): Promise<InventoryItem[]> => {
+  // 서버 사이드에서는 빈 배열 반환
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  if (!isFirebaseConfigured()) {
+    return [];
+  }
   try {
-    const inventoryRef = collection(getDb(), 'inventory');
+    const db = getDb();
+    const inventoryRef = collection(db, 'inventory');
     const snapshot = await getDocs(inventoryRef);
     
     return snapshot.docs.map((doc) => {

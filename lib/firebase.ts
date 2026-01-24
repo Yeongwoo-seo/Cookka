@@ -22,6 +22,11 @@ let authInstance: Auth | null = null;
 let storageInstance: FirebaseStorage | null = null;
 
 const initializeFirebase = (): FirebaseApp | null => {
+  // 서버 사이드에서는 null 반환
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
   if (!hasFirebaseConfig()) {
     // 환경 변수가 없으면 null 반환 (빌드 시점 오류 방지)
     return null;
@@ -57,6 +62,11 @@ const initializeFirebase = (): FirebaseApp | null => {
 
 // Firestore 초기화 (lazy, 조건부)
 const getDbInstance = (): Firestore | null => {
+  // 서버 사이드에서는 null 반환
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
   if (!hasFirebaseConfig()) {
     return null;
   }
@@ -76,6 +86,11 @@ const getDbInstance = (): Firestore | null => {
 
 // Auth 초기화 (lazy, 조건부)
 const getAuthInstanceInternal = (): Auth | null => {
+  // 서버 사이드에서는 null 반환
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
   if (!hasFirebaseConfig()) {
     return null;
   }
@@ -95,6 +110,11 @@ const getAuthInstanceInternal = (): Auth | null => {
 
 // Storage 초기화 (lazy, 조건부)
 const getStorageInstanceInternal = (): FirebaseStorage | null => {
+  // 서버 사이드에서는 null 반환
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
   if (!hasFirebaseConfig()) {
     return null;
   }
@@ -119,6 +139,10 @@ let _storage: FirebaseStorage | null = null;
 
 // Lazy getter 함수들 (이름 충돌 방지)
 const getDbLazy = (): Firestore => {
+  // 서버 사이드에서는 오류 방지
+  if (typeof window === 'undefined') {
+    throw new Error('Firebase can only be used on the client side');
+  }
   if (!_db) {
     const instance = getDbInstance();
     if (!instance) {
@@ -130,6 +154,10 @@ const getDbLazy = (): Firestore => {
 };
 
 const getAuthLazy = (): Auth => {
+  // 서버 사이드에서는 오류 방지
+  if (typeof window === 'undefined') {
+    throw new Error('Firebase can only be used on the client side');
+  }
   if (!_auth) {
     const instance = getAuthInstanceInternal();
     if (!instance) {
@@ -141,6 +169,10 @@ const getAuthLazy = (): Auth => {
 };
 
 const getStorageLazy = (): FirebaseStorage => {
+  // 서버 사이드에서는 오류 방지
+  if (typeof window === 'undefined') {
+    throw new Error('Firebase can only be used on the client side');
+  }
   if (!_storage) {
     const instance = getStorageInstanceInternal();
     if (!instance) {
@@ -172,19 +204,46 @@ export const getStorageInstance = (): FirebaseStorage => {
 // 주의: collection(db, ...) 같은 함수 호출에는 getDb()를 사용해야 함
 export const db = new Proxy({} as Firestore, {
   get(_target, prop) {
-    return (getDbLazy() as any)[prop];
+    // 서버 사이드에서는 undefined 반환
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    try {
+      return (getDbLazy() as any)[prop];
+    } catch (error) {
+      console.warn('Firebase db access error:', error);
+      return undefined;
+    }
   },
 });
 
 export const auth = new Proxy({} as Auth, {
   get(_target, prop) {
-    return (getAuthLazy() as any)[prop];
+    // 서버 사이드에서는 undefined 반환
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    try {
+      return (getAuthLazy() as any)[prop];
+    } catch (error) {
+      console.warn('Firebase auth access error:', error);
+      return undefined;
+    }
   },
 });
 
 export const storage = new Proxy({} as FirebaseStorage, {
   get(_target, prop) {
-    return (getStorageLazy() as any)[prop];
+    // 서버 사이드에서는 undefined 반환
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    try {
+      return (getStorageLazy() as any)[prop];
+    } catch (error) {
+      console.warn('Firebase storage access error:', error);
+      return undefined;
+    }
   },
 });
 

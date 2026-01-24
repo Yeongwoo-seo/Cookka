@@ -706,7 +706,13 @@ export default function CookingView({
         </div>
 
         {/* 조리 완료 플로팅 버튼 - 네비게이션 바로 위 */}
-        <div className="fixed bottom-20 left-0 right-0 z-50 px-4">
+        <div 
+          className="fixed left-0 right-0 z-50 px-4"
+          style={{ 
+            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`,
+            paddingBottom: 'var(--safe-area-inset-bottom)'
+          }}
+        >
           <div className="max-w-4xl mx-auto">
             <button
               onClick={allRecipesComplete ? onComplete : undefined}

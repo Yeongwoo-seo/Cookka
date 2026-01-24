@@ -543,7 +543,12 @@ export default function RecipeBoardView() {
 
       {/* Floating 레시피 추가 버튼 - 모달이 열려있을 때는 숨김 */}
       {!isAddModalOpen && (
-        <div className="fixed bottom-24 right-6 z-50">
+        <div 
+          className="fixed right-6 z-50"
+          style={{
+            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+          }}
+        >
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="px-6 py-3 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center gap-2 font-medium"

@@ -1,0 +1,10 @@
+PowerShell에서 실행할 명령어:
+
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+Remove-Item -Force -ErrorAction SilentlyContinue ".git\index.lock"
+Remove-Item -Force -ErrorAction SilentlyContinue ".git\config.lock"
+git add .
+git commit -m "Fix: Floating button position and server-side Firebase errors"
+git push
+
+주의: 한국어 커밋 메시지가 문제를 일으킬 수 있으므로 영어로 변경했습니다.
