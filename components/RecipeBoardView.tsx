@@ -141,36 +141,30 @@ export default function RecipeBoardView() {
                     >
                       {/* 헤더 */}
                       <div className="p-4 flex-1">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          {/* 왼쪽: 레시피 이름과 카테고리 */}
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <p className="font-semibold text-base text-[#1A1A1A] truncate">
-                              {r.name}
-                            </p>
+                        {/* 첫 번째 줄: 카테고리와 수정/삭제 버튼 */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
                             {r.category && (
                               <span 
-                                className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
+                                className={`px-2 py-0.5 text-xs font-medium rounded ${
                                   getRecipeCategoryColor(r.category)
                                 }`}
                               >
-                                {r.category}
+                                [{r.category}]
                               </span>
                             )}
                           </div>
                           
-                          {/* 오른쪽: 수정/삭제 아이콘 */}
-                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                          <div className="flex items-center gap-1">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditingRecipe(r);
                               }}
-                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                               title="수정"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
+                              수정
                             </button>
                             <button
                               onClick={(e) => {
@@ -179,15 +173,20 @@ export default function RecipeBoardView() {
                                   deleteRecipe(r.id);
                                 }
                               }}
-                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                               title="삭제"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                              삭제
                             </button>
                           </div>
                         </div>
+                        
+                        {/* 두 번째 줄: 메뉴 이름 */}
+                        <p className="font-semibold text-base text-[#1A1A1A] mb-2">
+                          {r.name}
+                        </p>
+                        
+                        {/* 세 번째 줄: 설명 */}
                         {r.description && (
                           <p className="text-sm text-gray-600 truncate">{r.description}</p>
                         )}

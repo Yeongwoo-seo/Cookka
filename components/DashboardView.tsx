@@ -12,18 +12,9 @@ export default function DashboardView() {
   const businessMetrics = useAppStore((state) => state.businessMetrics);
   const [activeTab, setActiveTab] = useState<DashboardTab>('menu');
 
-  if (!businessMetrics) {
-    return (
-      <div className="h-screen flex flex-col max-w-7xl mx-auto px-4 pt-4 pb-24">
-        <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col h-full overflow-hidden">
-          <p className="text-gray-500">데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const profit = calculateProfit(businessMetrics);
-  const profitMargin = calculateProfitMargin(businessMetrics);
+  // hooks를 조건부 return 이전에 모두 호출
+  const profit = businessMetrics ? calculateProfit(businessMetrics) : 0;
+  const profitMargin = businessMetrics ? calculateProfitMargin(businessMetrics) : 0;
 
   // 샘플 데이터 생성 (실제로는 API에서 가져올 데이터)
   const weeklyData = useMemo(() => {
@@ -41,6 +32,16 @@ export default function DashboardView() {
   }, []);
 
   const maxRevenue = Math.max(...weeklyData.map(d => d.revenue));
+
+  if (!businessMetrics) {
+    return (
+      <div className="h-screen flex flex-col max-w-7xl mx-auto px-4 pt-4 pb-24">
+        <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col h-full overflow-hidden">
+          <p className="text-gray-500">데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col max-w-7xl mx-auto px-4 pt-4 pb-24">

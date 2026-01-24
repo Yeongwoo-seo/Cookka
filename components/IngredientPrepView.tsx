@@ -172,20 +172,31 @@ export default function IngredientPrepView({
           </div>
         </div>
 
-        {showButton && onComplete && (
-          <button
-            onClick={onComplete}
-            disabled={!isAllPrepared}
-            className={`w-full py-4 rounded-xl font-semibold text-lg transition-colors shadow-md ${
-              isAllPrepared
-                ? 'bg-[#4D99CC] text-white hover:bg-[#3d89bc] cursor-pointer'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            조리 시작
-          </button>
-        )}
       </div>
+
+      {/* 플로팅 조리 시작 버튼 - 네비게이션 바로 위 */}
+      {showButton && onComplete && (
+        <div 
+          className="fixed left-0 right-0 z-50 px-4"
+          style={{
+            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 13px + var(--safe-area-inset-bottom))`
+          }}
+        >
+          <div className="max-w-4xl mx-auto">
+            <button
+              onClick={onComplete}
+              disabled={!isAllPrepared}
+              className={`w-full py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg ${
+                isAllPrepared
+                  ? 'bg-[#4D99CC] text-white hover:bg-[#3d89bc] cursor-pointer'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              조리 시작
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

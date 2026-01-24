@@ -2,17 +2,26 @@
 
 import { useEffect, useState } from 'react';
 
-// 빌드 정보 (코드 수정 시마다 업데이트)
-const BUILD_INFO = {
-  version: '1.0.0',
+// 정적 빌드 정보 (hydration 오류 방지)
+const STATIC_BUILD_INFO = {
+  version: '1.0.1',
   buildDate: '2026-01-24',
-  buildTime: '05:10',
+  buildTime: '17:20',
 };
 
 export default function VersionInfo() {
+  const [buildInfo, setBuildInfo] = useState(STATIC_BUILD_INFO);
   const [currentTime, setCurrentTime] = useState<string>('');
 
   useEffect(() => {
+    // 클라이언트에서만 동적 빌드 정보 업데이트
+    const now = new Date();
+    setBuildInfo({
+      version: '1.0.1',
+      buildDate: now.toISOString().split('T')[0],
+      buildTime: now.toTimeString().slice(0, 5),
+    });
+
     // 현재 시간 업데이트
     const updateTime = () => {
       const now = new Date();
@@ -44,8 +53,8 @@ export default function VersionInfo() {
       }}
     >
       <div className="text-[9px] sm:text-[10px] text-gray-400 font-mono bg-white/80 backdrop-blur-sm px-1.5 py-0.5 rounded shadow-sm">
-        <div className="text-gray-500">v{BUILD_INFO.version}</div>
-        <div className="text-gray-400">{BUILD_INFO.buildDate} {BUILD_INFO.buildTime}</div>
+        <div className="text-gray-500">v{buildInfo.version}</div>
+        <div className="text-gray-400">{buildInfo.buildDate} {buildInfo.buildTime}</div>
       </div>
     </div>
   );

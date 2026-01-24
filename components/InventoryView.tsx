@@ -271,52 +271,48 @@ export default function InventoryView() {
   const categories: (IngredientCategory | '전체')[] = ['전체', '육류', '채소', '조미료', '곡물', '기타'];
 
   return (
-    <>
-      <div className="max-w-7xl mx-auto px-4 py-8 pb-24">
-
-        {/* 수정 모드 토글 버튼 */}
+    <div className="h-screen flex flex-col max-w-7xl mx-auto px-4 pt-4 pb-24">
+      <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col h-full overflow-hidden">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex gap-2 flex-wrap">
-          {categories.map((category) => {
-          const count = category === '전체' 
-            ? inventory.length 
-            : groupedInventory.get(category)?.length || 0;
+            {categories.map((category) => {
+              const count = category === '전체' 
+                ? inventory.length 
+                : groupedInventory.get(category)?.length || 0;
+              
+              if (category !== '전체' && count === 0) return null;
+              
+              return (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCategory === category
+                      ? 'bg-[#4D99CC] text-white'
+                      : category === '전체'
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : `${getIngredientCategoryColor(category)} hover:opacity-80`
+                  }`}
+                >
+                  {category}
+                </button>
+              );
+            })}
+          </div>
           
-          if (category !== '전체' && count === 0) return null;
-          
-          return (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                selectedCategory === category
-                  ? 'bg-[#4D99CC] text-white'
-                  : category === '전체'
-                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    : `${getIngredientCategoryColor(category)} hover:opacity-80`
-              }`}
-            >
-              {category}
-            </button>
-          );
-        })}
+          <button
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              isEditMode
+                ? 'bg-[#4D99CC] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {isEditMode ? '수정 완료' : '수정'}
+          </button>
         </div>
-        
-        {/* 수정 모드 토글 버튼 */}
-        <button
-          onClick={() => setIsEditMode(!isEditMode)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            isEditMode
-              ? 'bg-[#4D99CC] text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          {isEditMode ? '수정 완료' : '수정'}
-        </button>
-      </div>
 
-      {/* 재고 목록 */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex-1">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -446,7 +442,7 @@ export default function InventoryView() {
                   onClick={() => handleSort('averageCost')}
                 >
                   <div className="flex items-center gap-2">
-                    <span>원가</span>
+                    <span>금액/중량 또는 용량(kg, L)</span>
                     <div className="flex flex-col">
                       <svg
                         className={`w-3 h-3 ${sortField === 'averageCost' && sortDirection === 'asc' ? 'text-black' : 'text-gray-400'}`}
@@ -510,7 +506,7 @@ export default function InventoryView() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        ${(calculateWeightedAverageCost(item) / 1000).toFixed(2)}
+                        ${(calculateWeightedAverageCost(item) / 1000).toFixed(2)}/{item.unit}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
@@ -560,7 +556,6 @@ export default function InventoryView() {
             </tbody>
           </table>
         </div>
-      </div>
       </div>
 
       {/* 재고 등록/수정 모달 */}
@@ -614,6 +609,31 @@ export default function InventoryView() {
           />
         </svg>
       </button>
-    </>
+      </div>
+
+      {/* 재고 등록 플로팅 버튼 */}
+      <button
+        onClick={() => setIsAddModalOpen(true)}
+        className="fixed right-6 z-50 w-14 h-14 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center justify-center"
+        style={{
+          bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+        }}
+        title="재고 등록"
+      >
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+      </button>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { InventoryItem, sampleInventory } from '@/types/inventory';
 import { BusinessMetrics, sampleBusinessMetrics } from '@/types/business-metrics';
 import { Team, User } from '@/types/team';
 import { DailyMenu } from '@/types/daily-menu';
-import { format } from 'date-fns';
+import { format, addDays, getDay } from 'date-fns';
 // Firebase 함수는 동적으로 import하여 서버 사이드에서의 실행 방지
 
 interface IngredientPrice {
@@ -193,25 +193,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadSampleData: () => {
-    // 샘플 메뉴 히스토리 생성 (오늘부터 과거 7일)
+    // 샘플 메뉴 히스토리 생성 (선택된 기준일부터 과거 7일)
     const sampleHistory = new Map<string, DailyMenu>();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayKey = format(today, 'yyyy-MM-dd');
     
-    // 오늘의 메뉴: 흰쌀밥, 제육볶음, 어묵볶음, 콩자반, 콩나물무침
-    const todayRecipes = sampleRecipes.filter(r => 
+    // 주말이면 다음 월요일을 기준으로 설정 (RecipeMainView와 동일한 로직)
+    const dayOfWeek = getDay(today); // 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토
+    let baseDate = today;
+    if (dayOfWeek === 0) { // 일요일 → 다음 월요일 (+1일)
+      baseDate = addDays(today, 1);
+    } else if (dayOfWeek === 6) { // 토요일 → 다음 월요일 (+2일)
+      baseDate = addDays(today, 2);
+    }
+    
+    const baseDateKey = format(baseDate, 'yyyy-MM-dd');
+    
+    // 기준일의 메뉴: 흰쌀밥, 제육볶음, 어묵볶음, 콩자반, 콩나물무침
+    const baseDateRecipes = sampleRecipes.filter(r => 
       ['1', '2', '3', '4', '5'].includes(r.id)
     );
-    sampleHistory.set(todayKey, {
-      date: today,
-      recipes: todayRecipes,
+    sampleHistory.set(baseDateKey, {
+      date: baseDate,
+      recipes: baseDateRecipes,
       servings: 50,
     });
     
     // 과거 날짜들은 랜덤하게 메뉴 선택
     for (let i = 1; i < 7; i++) {
-      const date = new Date(today);
+      const date = new Date(baseDate);
       date.setDate(date.getDate() - i);
       const dateKey = format(date, 'yyyy-MM-dd');
       

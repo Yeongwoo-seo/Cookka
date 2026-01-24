@@ -38,20 +38,21 @@ export default function TodayMenuView({
     setEditServingsValue(dailyMenu.servings.toString());
   }, [dailyMenu.servings]);
 
-  // 현재 날짜 기준 주간 월~금 날짜 목록 (5일)
+  // 현재 날짜 기준 주간 월~금 날짜 목록 (5일만, 주말 제외)
   const weekDays = useMemo(() => {
     try {
       const date = new Date(dailyMenu.date);
       date.setHours(0, 0, 0, 0);
       const thisWeekStart = startOfWeek(date, { weekStartsOn: 1 }); // 해당 주 월요일
       
-      // 해당 주 월~금 (5일)
-      const thisWeek = eachDayOfInterval({ 
-        start: thisWeekStart, 
-        end: new Date(thisWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000) // 월요일 + 4일 = 금요일
-      });
+      // 월~금 (5일)만 직접 생성 - 주말 완전 제외
+      const weekdays = [];
+      for (let i = 0; i < 5; i++) { // 0=월, 1=화, 2=수, 3=목, 4=금
+        const day = new Date(thisWeekStart.getTime() + i * 24 * 60 * 60 * 1000);
+        weekdays.push(day);
+      }
       
-      return thisWeek;
+      return weekdays;
     } catch (error) {
       console.error('Error calculating weekDays:', error);
       return [];
@@ -75,8 +76,10 @@ export default function TodayMenuView({
   };
 
   const handleEditServingsClick = () => {
-    setIsEditingServings(true);
-    setEditServingsValue(localServings.toString());
+    // 메뉴 등록 모달 열기 (전체 수정 가능)
+    if (onEdit) {
+      onEdit();
+    }
   };
 
   const handleSaveServings = () => {
@@ -104,13 +107,13 @@ export default function TodayMenuView({
                 try {
                   const month = format(date, 'M', { locale: ko });
                   const day = format(date, 'd', { locale: ko });
-                  const dayName = format(date, 'E', { locale: ko });
+                  const dayName = format(date, 'EEEEE', { locale: ko }); // 한 글자 요일
                   return (
                     <th
                       key={format(date, 'yyyy-MM-dd')}
                       className="bg-blue-100 border border-gray-300 py-3 px-4 text-center font-semibold text-sm text-gray-800"
                     >
-                      {month}월 {day}일 ({dayName})
+                      {month}/{day} ({dayName})
                     </th>
                   );
                 } catch (error) {
@@ -153,7 +156,7 @@ export default function TodayMenuView({
                               ))}
                             </div>
                           ) : (
-                            <div className="text-xs text-gray-400">등록 없음</div>
+                            <div className="text-xs text-gray-400">없음</div>
                           )}
                         </div>
                       </div>
@@ -204,7 +207,7 @@ export default function TodayMenuView({
           )}
           <div className="text-center">
             <h2 className="text-lg font-semibold" style={{ color: '#1A1A1A' }}>
-              {format(currentDate, 'yyyy년 MM월 dd일')}
+              {format(currentDate, 'yyyy년 MM월 dd일')} ({format(currentDate, 'EEEEE', { locale: ko })})
             </h2>
           </div>
           {onNextDay && (
@@ -232,8 +235,8 @@ export default function TodayMenuView({
         </div>
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <h2 className="text-xl font-bold whitespace-nowrap" style={{ color: '#1A1A1A' }}>
                 오늘의 도시락
               </h2>
               {isEditingServings ? (
@@ -267,7 +270,7 @@ export default function TodayMenuView({
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 whitespace-nowrap">
                   <span className="text-lg font-semibold">{localServings}개</span>
                   <button
                     onClick={handleEditServingsClick}
@@ -291,18 +294,10 @@ export default function TodayMenuView({
               )}
             </div>
             <div className="flex items-center gap-3">
-              {onEdit && (
-                <button
-                  onClick={onEdit}
-                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                >
-                  수정하기
-                </button>
-              )}
               {(onAddMenu || onEdit) && (
                 <button
                   onClick={onAddMenu || onEdit}
-                  className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg hover:bg-[#3d89bc] transition-colors text-sm font-medium flex items-center gap-2"
+                  className="px-6 py-2 bg-[#4D99CC] text-white rounded-lg hover:bg-[#3d89bc] transition-colors text-sm font-medium flex items-center gap-2"
                 >
                   <svg
                     className="w-4 h-4"
@@ -324,10 +319,7 @@ export default function TodayMenuView({
           </div>
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">
-              이 날짜에는 등록된 메뉴가 없습니다.
-            </p>
-            <p className="text-gray-400 text-sm mt-2">
-              2026년 1월 22일로 이동하면 메뉴를 확인할 수 있습니다.
+              메뉴를 등록하시려면 <span className="text-[#4D99CC] font-semibold">+ 메뉴 등록</span>을 눌러주세요
             </p>
           </div>
         </div>
@@ -366,7 +358,7 @@ export default function TodayMenuView({
         )}
         <div className="text-center">
           <h2 className="text-lg font-semibold" style={{ color: '#1A1A1A' }}>
-            {format(currentDate, 'yyyy년 MM월 dd일')}
+            {format(currentDate, 'yyyy년 MM월 dd일')} ({format(currentDate, 'EEEEE', { locale: ko })})
           </h2>
         </div>
         {onNextDay && (
@@ -394,8 +386,8 @@ export default function TodayMenuView({
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-8">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <h2 className="text-xl font-bold whitespace-nowrap" style={{ color: '#1A1A1A' }}>
               오늘의 도시락
             </h2>
             {isEditingServings ? (
@@ -429,7 +421,7 @@ export default function TodayMenuView({
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 whitespace-nowrap">
                 <span className="text-lg font-semibold">{localServings}개</span>
                 <button
                   onClick={handleEditServingsClick}
@@ -452,37 +444,29 @@ export default function TodayMenuView({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            {onEdit && (
-              <button
-                onClick={onEdit}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-              >
-                수정하기
-              </button>
-            )}
-            {(onAddMenu || onEdit) && (
-              <button
-                onClick={onAddMenu || onEdit}
-                className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg hover:bg-[#3d89bc] transition-colors text-sm font-medium flex items-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            <div className="flex items-center gap-3">
+              {(onAddMenu || onEdit) && (
+                <button
+                  onClick={onAddMenu || onEdit}
+                  className="px-6 py-2 bg-[#4D99CC] text-white rounded-lg hover:bg-[#3d89bc] transition-colors text-sm font-medium flex items-center gap-2"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                메뉴 등록
-              </button>
-            )}
-          </div>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  메뉴 등록
+                </button>
+              )}
+            </div>
         </div>
 
         <div className="space-y-3 mb-24">
@@ -504,13 +488,13 @@ export default function TodayMenuView({
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{
-            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 13px + var(--safe-area-inset-bottom))`
           }}
         >
           <div className="max-w-4xl mx-auto">
             <button
               onClick={onStartCooking}
-              className="w-full py-4 bg-[#4D99CC] text-white rounded-xl font-semibold text-lg hover:bg-[#3d89bc] transition-colors shadow-lg"
+              className="w-full py-5 bg-[#4D99CC] text-white rounded-xl font-semibold text-lg hover:bg-[#3d89bc] transition-colors shadow-lg"
             >
               요리 시작
             </button>
