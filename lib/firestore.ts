@@ -36,8 +36,12 @@ const timestampToDate = (timestamp: Timestamp | Date): Date => {
 // ============ 레시피 관련 ============
 
 export const getRecipes = async (): Promise<Recipe[]> => {
+  if (!isFirebaseConfigured()) {
+    return [];
+  }
   try {
-    const recipesRef = collection(getDb(), 'recipes');
+    const db = getDb();
+    const recipesRef = collection(db, 'recipes');
     const snapshot = await getDocs(recipesRef);
     
     return snapshot.docs.map((doc) => {
@@ -64,8 +68,12 @@ export const getRecipes = async (): Promise<Recipe[]> => {
 };
 
 export const saveRecipe = async (recipe: Recipe): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
-    const recipeRef = doc(getDb(), 'recipes', recipe.id);
+    const db = getDb();
+    const recipeRef = doc(db, 'recipes', recipe.id);
     const recipeData = {
       ...recipe,
       createdAt: dateToTimestamp(recipe.createdAt),
@@ -79,8 +87,12 @@ export const saveRecipe = async (recipe: Recipe): Promise<void> => {
 };
 
 export const deleteRecipe = async (recipeId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
-    const recipeRef = doc(getDb(), 'recipes', recipeId);
+    const db = getDb();
+    const recipeRef = doc(db, 'recipes', recipeId);
     await deleteDoc(recipeRef);
   } catch (error) {
     console.error('레시피 삭제 오류:', error);
@@ -91,7 +103,11 @@ export const deleteRecipe = async (recipeId: string): Promise<void> => {
 export const subscribeRecipes = (
   callback: (recipes: Recipe[]) => void
 ): (() => void) => {
-  const recipesRef = collection(getDb(), 'recipes');
+  if (!isFirebaseConfigured()) {
+    return () => {}; // 빈 unsubscribe 함수 반환
+  }
+  const db = getDb();
+  const recipesRef = collection(db, 'recipes');
   const unsubscribe = onSnapshot(recipesRef, (snapshot) => {
     const recipes = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -142,8 +158,12 @@ export const getInventory = async (): Promise<InventoryItem[]> => {
 };
 
 export const saveInventoryItem = async (item: InventoryItem): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
-    const itemRef = doc(getDb(), 'inventory', item.id);
+    const db = getDb();
+    const itemRef = doc(db, 'inventory', item.id);
     const itemData = {
       ...item,
       lastUpdated: dateToTimestamp(item.lastUpdated),
@@ -161,8 +181,12 @@ export const saveInventoryItem = async (item: InventoryItem): Promise<void> => {
 };
 
 export const deleteInventoryItem = async (itemId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
-    const itemRef = doc(getDb(), 'inventory', itemId);
+    const db = getDb();
+    const itemRef = doc(db, 'inventory', itemId);
     await deleteDoc(itemRef);
   } catch (error) {
     console.error('재고 삭제 오류:', error);
@@ -173,7 +197,11 @@ export const deleteInventoryItem = async (itemId: string): Promise<void> => {
 export const subscribeInventory = (
   callback: (inventory: InventoryItem[]) => void
 ): (() => void) => {
-  const inventoryRef = collection(getDb(), 'inventory');
+  if (!isFirebaseConfigured()) {
+    return () => {}; // 빈 unsubscribe 함수 반환
+  }
+  const db = getDb();
+  const inventoryRef = collection(db, 'inventory');
   const unsubscribe = onSnapshot(inventoryRef, (snapshot) => {
     const inventory = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -196,8 +224,12 @@ export const subscribeInventory = (
 // ============ 일일 메뉴 관련 ============
 
 export const getDailyMenus = async (): Promise<Map<string, DailyMenu>> => {
+  if (!isFirebaseConfigured()) {
+    return new Map();
+  }
   try {
-    const menusRef = collection(getDb(), 'dailyMenus');
+    const db = getDb();
+    const menusRef = collection(db, 'dailyMenus');
     const snapshot = await getDocs(menusRef);
     const menusMap = new Map<string, DailyMenu>();
     
@@ -220,9 +252,13 @@ export const getDailyMenus = async (): Promise<Map<string, DailyMenu>> => {
 };
 
 export const saveDailyMenu = async (menu: DailyMenu): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
+    const db = getDb();
     const dateKey = format(menu.date, 'yyyy-MM-dd');
-    const menuRef = doc(getDb(), 'dailyMenus', dateKey);
+    const menuRef = doc(db, 'dailyMenus', dateKey);
     const menuData = {
       date: dateToTimestamp(menu.date),
       recipes: menu.recipes,
@@ -238,6 +274,10 @@ export const saveDailyMenu = async (menu: DailyMenu): Promise<void> => {
 export const subscribeDailyMenus = (
   callback: (menus: Map<string, DailyMenu>) => void
 ): (() => void) => {
+  if (!isFirebaseConfigured()) {
+    return () => {}; // 빈 unsubscribe 함수 반환
+  }
+  const db = getDb();
   const menusRef = collection(db, 'dailyMenus');
   const unsubscribe = onSnapshot(menusRef, (snapshot) => {
     const menusMap = new Map<string, DailyMenu>();
@@ -259,8 +299,12 @@ export const subscribeDailyMenus = (
 // ============ 비즈니스 메트릭스 관련 ============
 
 export const getBusinessMetrics = async (): Promise<BusinessMetrics | null> => {
+  if (!isFirebaseConfigured()) {
+    return null;
+  }
   try {
-    const metricsRef = doc(getDb(), 'businessMetrics', 'current');
+    const db = getDb();
+    const metricsRef = doc(db, 'businessMetrics', 'current');
     const docSnap = await getDoc(metricsRef);
     
     if (docSnap.exists()) {
@@ -278,8 +322,12 @@ export const getBusinessMetrics = async (): Promise<BusinessMetrics | null> => {
 };
 
 export const saveBusinessMetrics = async (metrics: BusinessMetrics): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
-    const metricsRef = doc(getDb(), 'businessMetrics', 'current');
+    const db = getDb();
+    const metricsRef = doc(db, 'businessMetrics', 'current');
     const metricsData = {
       ...metrics,
       lastUpdated: dateToTimestamp(metrics.lastUpdated),
@@ -300,8 +348,12 @@ export interface IngredientPrice {
 }
 
 export const getIngredientPrices = async (): Promise<Map<string, IngredientPrice>> => {
+  if (!isFirebaseConfigured()) {
+    return new Map();
+  }
   try {
-    const pricesRef = collection(getDb(), 'ingredientPrices');
+    const db = getDb();
+    const pricesRef = collection(db, 'ingredientPrices');
     const snapshot = await getDocs(pricesRef);
     const pricesMap = new Map<string, IngredientPrice>();
     
@@ -319,9 +371,13 @@ export const getIngredientPrices = async (): Promise<Map<string, IngredientPrice
 };
 
 export const saveIngredientPrice = async (name: string, unit: string, costPerUnit: number): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
+    const db = getDb();
     const key = `${name}_${unit}`;
-    const priceRef = doc(getDb(), 'ingredientPrices', key);
+    const priceRef = doc(db, 'ingredientPrices', key);
     await setDoc(priceRef, { name, unit, costPerUnit }, { merge: true });
   } catch (error) {
     console.error('재료 가격 저장 오류:', error);
@@ -332,8 +388,12 @@ export const saveIngredientPrice = async (name: string, unit: string, costPerUni
 // ============ 팀 설정 관련 ============
 
 export const getTeam = async (teamId: string): Promise<Team | null> => {
+  if (!isFirebaseConfigured()) {
+    return null;
+  }
   try {
-    const teamRef = doc(getDb(), 'teams', teamId);
+    const db = getDb();
+    const teamRef = doc(db, 'teams', teamId);
     const docSnap = await getDoc(teamRef);
     
     if (docSnap.exists()) {
@@ -356,8 +416,12 @@ export const getTeam = async (teamId: string): Promise<Team | null> => {
 };
 
 export const saveTeam = async (team: Team): Promise<void> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured');
+  }
   try {
-    const teamRef = doc(getDb(), 'teams', team.id);
+    const db = getDb();
+    const teamRef = doc(db, 'teams', team.id);
     const teamData = {
       ...team,
       members: team.members.map((member) => ({

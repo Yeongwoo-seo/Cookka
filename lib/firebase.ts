@@ -71,7 +71,7 @@ const getDbInstance = (): Firestore | null => {
 };
 
 // Auth 초기화 (lazy, 조건부)
-const getAuthInstance = (): Auth | null => {
+const getAuthInstanceInternal = (): Auth | null => {
   if (!hasFirebaseConfig()) {
     return null;
   }
@@ -90,7 +90,7 @@ const getAuthInstance = (): Auth | null => {
 };
 
 // Storage 초기화 (lazy, 조건부)
-const getStorageInstance = (): FirebaseStorage | null => {
+const getStorageInstanceInternal = (): FirebaseStorage | null => {
   if (!hasFirebaseConfig()) {
     return null;
   }
@@ -127,7 +127,7 @@ const getDbLazy = (): Firestore => {
 
 const getAuthLazy = (): Auth => {
   if (!_auth) {
-    const instance = getAuthInstance();
+    const instance = getAuthInstanceInternal();
     if (!instance) {
       throw new Error('Firebase is not configured. Please set NEXT_PUBLIC_FIREBASE_* environment variables.');
     }
@@ -138,7 +138,7 @@ const getAuthLazy = (): Auth => {
 
 const getStorageLazy = (): FirebaseStorage => {
   if (!_storage) {
-    const instance = getStorageInstance();
+    const instance = getStorageInstanceInternal();
     if (!instance) {
       throw new Error('Firebase is not configured. Please set NEXT_PUBLIC_FIREBASE_* environment variables.');
     }
@@ -152,7 +152,7 @@ export const getDb = (): Firestore => {
   return getDbLazy();
 };
 
-export const getAuth = (): Auth => {
+export const getAuthInstance = (): Auth => {
   return getAuthLazy();
 };
 
