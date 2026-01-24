@@ -116,12 +116,12 @@ export default function RecipeMainView() {
   // 모든 탭을 통합된 레이아웃으로 처리
 
   return (
-    <div className="flex flex-col h-screen relative" style={{ backgroundColor: '#FAFAFB' }}>
+    <div className="flex flex-col relative safari-full-height" style={{ backgroundColor: '#FAFAFB' }}>
       {/* Version Info */}
       <VersionInfo />
       
       {/* Main Content */}
-      <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
+      <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}>
         {activeTab === 'recipes' && viewState === 'menu' && (
           <TodayMenuView
             dailyMenu={dailyMenu}
@@ -176,19 +176,19 @@ export default function RecipeMainView() {
         currentRecipeIds={dailyMenu.recipes.map((r) => r.id)}
       />
 
-      {/* Bottom Navigation - Floating Style */}
+      {/* Bottom Navigation */}
       <nav 
         className="fixed left-0 right-0 z-50"
         style={{ 
-          bottom: 'env(safe-area-inset-bottom, 0px)',
-          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)',
+          bottom: '0px',
           paddingLeft: 'env(safe-area-inset-left, 0px)',
           paddingRight: 'env(safe-area-inset-right, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         <div 
-          className={`mx-4 mb-4 rounded-2xl shadow-lg backdrop-blur-xl border border-white/20 transition-opacity ${
-            viewState !== 'menu' ? 'bg-white/50 opacity-60' : 'bg-white/80'
+          className={`backdrop-blur-xl border-t border-gray-200 transition-opacity ${
+            viewState !== 'menu' ? 'bg-white/50 opacity-60' : 'bg-white/90'
           }`}
           style={{
             paddingTop: '0.75rem',

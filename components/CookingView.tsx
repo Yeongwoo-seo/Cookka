@@ -712,7 +712,7 @@ export default function CookingView({
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{ 
-            bottom: `calc(80px + 10px + env(safe-area-inset-bottom, 0px))`,
+            bottom: `calc(70px + 10px + env(safe-area-inset-bottom, 0px))`,
             paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >

@@ -547,7 +547,7 @@ export default function RecipeBoardView() {
         <div 
           className="fixed right-6 z-50"
           style={{
-            bottom: `calc(80px + 10px + env(safe-area-inset-bottom, 0px))`
+            bottom: `calc(70px + 10px + env(safe-area-inset-bottom, 0px))`
           }}
         >
           <button
