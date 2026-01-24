@@ -14,7 +14,7 @@ import {
   QuerySnapshot,
   DocumentData,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, isFirebaseConfigured } from './firebase';
 import { Recipe } from '@/types/recipe';
 import { InventoryItem, PurchaseHistory } from '@/types/inventory';
 import { DailyMenu } from '@/types/daily-menu';

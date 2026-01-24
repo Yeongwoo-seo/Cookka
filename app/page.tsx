@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useAppStore } from '@/store/app-store';
 import RecipeMainView from '@/components/RecipeMainView';
 
+// 빌드 시점 정적 생성 방지 (Firebase 환경 변수 필요)
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const loadSampleData = useAppStore((state) => state.loadSampleData);
   const loadFromFirebase = useAppStore((state) => state.loadFromFirebase);

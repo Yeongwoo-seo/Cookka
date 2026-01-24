@@ -3,30 +3,172 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+// Firebase 설정이 있는지 확인하는 함수
+const hasFirebaseConfig = (): boolean => {
+  return !!(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  );
 };
 
-// Firebase 앱 초기화 (중복 초기화 방지)
-let app: FirebaseApp;
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
-}
+// Firebase 앱 초기화 (조건부, 빌드 시점 오류 방지)
+let app: FirebaseApp | null = null;
+let dbInstance: Firestore | null = null;
+let authInstance: Auth | null = null;
+let storageInstance: FirebaseStorage | null = null;
 
-// Firestore 초기화
-export const db: Firestore = getFirestore(app);
+const initializeFirebase = (): FirebaseApp | null => {
+  if (!hasFirebaseConfig()) {
+    // 환경 변수가 없으면 null 반환 (빌드 시점 오류 방지)
+    return null;
+  }
 
-// Auth 초기화
-export const auth: Auth = getAuth(app);
+  if (app) {
+    return app;
+  }
 
-// Storage 초기화
-export const storage: FirebaseStorage = getStorage(app);
+  const firebaseConfig = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
 
-export default app;
+  try {
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0];
+    }
+  } catch (error) {
+    // 빌드 시점 오류 방지
+    console.warn('Firebase initialization failed:', error);
+    return null;
+  }
+
+  return app;
+};
+
+// Firestore 초기화 (lazy, 조건부)
+const getDbInstance = (): Firestore | null => {
+  if (!hasFirebaseConfig()) {
+    return null;
+  }
+  if (!dbInstance) {
+    const firebaseApp = initializeFirebase();
+    if (firebaseApp) {
+      try {
+        dbInstance = getFirestore(firebaseApp);
+      } catch (error) {
+        console.warn('Firestore initialization failed:', error);
+        return null;
+      }
+    }
+  }
+  return dbInstance;
+};
+
+// Auth 초기화 (lazy, 조건부)
+const getAuthInstance = (): Auth | null => {
+  if (!hasFirebaseConfig()) {
+    return null;
+  }
+  if (!authInstance) {
+    const firebaseApp = initializeFirebase();
+    if (firebaseApp) {
+      try {
+        authInstance = getAuth(firebaseApp);
+      } catch (error) {
+        console.warn('Auth initialization failed:', error);
+        return null;
+      }
+    }
+  }
+  return authInstance;
+};
+
+// Storage 초기화 (lazy, 조건부)
+const getStorageInstance = (): FirebaseStorage | null => {
+  if (!hasFirebaseConfig()) {
+    return null;
+  }
+  if (!storageInstance) {
+    const firebaseApp = initializeFirebase();
+    if (firebaseApp) {
+      try {
+        storageInstance = getStorage(firebaseApp);
+      } catch (error) {
+        console.warn('Storage initialization failed:', error);
+        return null;
+      }
+    }
+  }
+  return storageInstance;
+};
+
+// 기존 API 유지 (함수로 래핑하여 lazy initialization)
+let _db: Firestore | null = null;
+let _auth: Auth | null = null;
+let _storage: FirebaseStorage | null = null;
+
+// Lazy getter 함수들 (이름 충돌 방지)
+const getDbLazy = (): Firestore => {
+  if (!_db) {
+    const instance = getDbInstance();
+    if (!instance) {
+      throw new Error('Firebase is not configured. Please set NEXT_PUBLIC_FIREBASE_* environment variables.');
+    }
+    _db = instance;
+  }
+  return _db;
+};
+
+const getAuthLazy = (): Auth => {
+  if (!_auth) {
+    const instance = getAuthInstance();
+    if (!instance) {
+      throw new Error('Firebase is not configured. Please set NEXT_PUBLIC_FIREBASE_* environment variables.');
+    }
+    _auth = instance;
+  }
+  return _auth;
+};
+
+const getStorageLazy = (): FirebaseStorage => {
+  if (!_storage) {
+    const instance = getStorageInstance();
+    if (!instance) {
+      throw new Error('Firebase is not configured. Please set NEXT_PUBLIC_FIREBASE_* environment variables.');
+    }
+    _storage = instance;
+  }
+  return _storage;
+};
+
+// 기존 API 유지 (Proxy를 사용하여 lazy access)
+export const db = new Proxy({} as Firestore, {
+  get(_target, prop) {
+    return (getDbLazy() as any)[prop];
+  },
+});
+
+export const auth = new Proxy({} as Auth, {
+  get(_target, prop) {
+    return (getAuthLazy() as any)[prop];
+  },
+});
+
+export const storage = new Proxy({} as FirebaseStorage, {
+  get(_target, prop) {
+    return (getStorageLazy() as any)[prop];
+  },
+});
+
+// Firebase가 설정되어 있는지 확인
+export const isFirebaseConfigured = (): boolean => {
+  return hasFirebaseConfig();
+};
+
+export default initializeFirebase;
