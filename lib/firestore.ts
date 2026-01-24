@@ -36,6 +36,10 @@ const timestampToDate = (timestamp: Timestamp | Date): Date => {
 // ============ 레시피 관련 ============
 
 export const getRecipes = async (): Promise<Recipe[]> => {
+  // 서버 사이드에서는 빈 배열 반환
+  if (typeof window === 'undefined') {
+    return [];
+  }
   if (!isFirebaseConfigured()) {
     return [];
   }
@@ -68,6 +72,9 @@ export const getRecipes = async (): Promise<Recipe[]> => {
 };
 
 export const saveRecipe = async (recipe: Recipe): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
@@ -87,6 +94,9 @@ export const saveRecipe = async (recipe: Recipe): Promise<void> => {
 };
 
 export const deleteRecipe = async (recipeId: string): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
@@ -103,6 +113,9 @@ export const deleteRecipe = async (recipeId: string): Promise<void> => {
 export const subscribeRecipes = (
   callback: (recipes: Recipe[]) => void
 ): (() => void) => {
+  if (typeof window === 'undefined') {
+    return () => {}; // 서버 사이드에서는 빈 함수 반환
+  }
   if (!isFirebaseConfigured()) {
     return () => {}; // 빈 unsubscribe 함수 반환
   }
@@ -158,6 +171,9 @@ export const getInventory = async (): Promise<InventoryItem[]> => {
 };
 
 export const saveInventoryItem = async (item: InventoryItem): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
@@ -181,6 +197,9 @@ export const saveInventoryItem = async (item: InventoryItem): Promise<void> => {
 };
 
 export const deleteInventoryItem = async (itemId: string): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
@@ -197,6 +216,9 @@ export const deleteInventoryItem = async (itemId: string): Promise<void> => {
 export const subscribeInventory = (
   callback: (inventory: InventoryItem[]) => void
 ): (() => void) => {
+  if (typeof window === 'undefined') {
+    return () => {}; // 서버 사이드에서는 빈 함수 반환
+  }
   if (!isFirebaseConfigured()) {
     return () => {}; // 빈 unsubscribe 함수 반환
   }
@@ -224,6 +246,9 @@ export const subscribeInventory = (
 // ============ 일일 메뉴 관련 ============
 
 export const getDailyMenus = async (): Promise<Map<string, DailyMenu>> => {
+  if (typeof window === 'undefined') {
+    return new Map(); // 서버 사이드에서는 빈 Map 반환
+  }
   if (!isFirebaseConfigured()) {
     return new Map();
   }
@@ -252,6 +277,9 @@ export const getDailyMenus = async (): Promise<Map<string, DailyMenu>> => {
 };
 
 export const saveDailyMenu = async (menu: DailyMenu): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
@@ -274,6 +302,9 @@ export const saveDailyMenu = async (menu: DailyMenu): Promise<void> => {
 export const subscribeDailyMenus = (
   callback: (menus: Map<string, DailyMenu>) => void
 ): (() => void) => {
+  if (typeof window === 'undefined') {
+    return () => {}; // 서버 사이드에서는 빈 함수 반환
+  }
   if (!isFirebaseConfigured()) {
     return () => {}; // 빈 unsubscribe 함수 반환
   }
@@ -299,6 +330,9 @@ export const subscribeDailyMenus = (
 // ============ 비즈니스 메트릭스 관련 ============
 
 export const getBusinessMetrics = async (): Promise<BusinessMetrics | null> => {
+  if (typeof window === 'undefined') {
+    return null; // 서버 사이드에서는 null 반환
+  }
   if (!isFirebaseConfigured()) {
     return null;
   }
@@ -322,6 +356,9 @@ export const getBusinessMetrics = async (): Promise<BusinessMetrics | null> => {
 };
 
 export const saveBusinessMetrics = async (metrics: BusinessMetrics): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
@@ -348,6 +385,9 @@ export interface IngredientPrice {
 }
 
 export const getIngredientPrices = async (): Promise<Map<string, IngredientPrice>> => {
+  if (typeof window === 'undefined') {
+    return new Map(); // 서버 사이드에서는 빈 Map 반환
+  }
   if (!isFirebaseConfigured()) {
     return new Map();
   }
@@ -371,6 +411,9 @@ export const getIngredientPrices = async (): Promise<Map<string, IngredientPrice
 };
 
 export const saveIngredientPrice = async (name: string, unit: string, costPerUnit: number): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }
@@ -388,6 +431,9 @@ export const saveIngredientPrice = async (name: string, unit: string, costPerUni
 // ============ 팀 설정 관련 ============
 
 export const getTeam = async (teamId: string): Promise<Team | null> => {
+  if (typeof window === 'undefined') {
+    return null; // 서버 사이드에서는 null 반환
+  }
   if (!isFirebaseConfigured()) {
     return null;
   }
@@ -416,6 +462,9 @@ export const getTeam = async (teamId: string): Promise<Team | null> => {
 };
 
 export const saveTeam = async (team: Team): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return; // 서버 사이드에서는 무시
+  }
   if (!isFirebaseConfigured()) {
     throw new Error('Firebase is not configured');
   }

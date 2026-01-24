@@ -5,6 +5,10 @@ import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Firebase 설정이 있는지 확인하는 함수
 const hasFirebaseConfig = (): boolean => {
+  // 서버 사이드에서는 클라이언트 전용이므로 false 반환
+  if (typeof window === 'undefined') {
+    return false;
+  }
   return !!(
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -149,6 +153,10 @@ const getStorageLazy = (): FirebaseStorage => {
 
 // 실제 인스턴스를 반환하는 getter 함수들 (firestore.ts에서 사용)
 export const getDb = (): Firestore => {
+  // 서버 사이드에서는 오류 방지
+  if (typeof window === 'undefined') {
+    throw new Error('Firebase can only be used on the client side');
+  }
   return getDbLazy();
 };
 
