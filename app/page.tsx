@@ -6,7 +6,6 @@ import RecipeMainView from '@/components/RecipeMainView';
 
 // 빌드 시점 정적 생성 방지 (Firebase 환경 변수 필요)
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export default function Home() {
   const loadSampleData = useAppStore((state) => state.loadSampleData);
