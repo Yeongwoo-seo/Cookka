@@ -12,6 +12,7 @@ import MenuAnalysisView from './MenuAnalysisView';
 import TeamSettingsView from './TeamSettingsView';
 import RecipeSelectModal from './RecipeSelectModal';
 import RecipeBoardView from './RecipeBoardView';
+import VersionInfo from './VersionInfo';
 
 type ViewState = 'menu' | 'prep' | 'cooking' | 'complete';
 type Tab = 'recipes' | 'dashboard' | 'inventory' | 'analysis' | 'team';
@@ -115,7 +116,10 @@ export default function RecipeMainView() {
   // 모든 탭을 통합된 레이아웃으로 처리
 
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: '#FAFAFB' }}>
+    <div className="flex flex-col h-screen relative" style={{ backgroundColor: '#FAFAFB' }}>
+      {/* Version Info */}
+      <VersionInfo />
+      
       {/* Main Content */}
       <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(70px + var(--safari-address-bar-height, 44px) + var(--safe-area-inset-bottom))' }}>
         {activeTab === 'recipes' && viewState === 'menu' && (

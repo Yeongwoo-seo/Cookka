@@ -6,6 +6,7 @@ import RecipeBoardView from './RecipeBoardView';
 import InventoryView from './InventoryView';
 import TeamSettingsView from './TeamSettingsView';
 import MenuAnalysisView from './MenuAnalysisView';
+import VersionInfo from './VersionInfo';
 
 type Tab = 'dashboard' | 'recipes' | 'inventory' | 'analysis' | 'team';
 
@@ -21,7 +22,10 @@ export default function MainTabView() {
   ];
 
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: '#FAFAFB' }}>
+    <div className="flex flex-col h-screen relative" style={{ backgroundColor: '#FAFAFB' }}>
+      {/* Version Info */}
+      <VersionInfo />
+      
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200" style={{ paddingTop: 'var(--safe-area-inset-top)' }}>
         <div className="max-w-7xl mx-auto px-4 py-4">
