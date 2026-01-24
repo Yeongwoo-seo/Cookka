@@ -121,7 +121,7 @@ export default function RecipeMainView() {
       <VersionInfo />
       
       {/* Main Content */}
-      <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(70px + var(--safari-address-bar-height, 44px) + var(--safe-area-inset-bottom))' }}>
+      <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
         {activeTab === 'recipes' && viewState === 'menu' && (
           <TodayMenuView
             dailyMenu={dailyMenu}
@@ -176,44 +176,63 @@ export default function RecipeMainView() {
         currentRecipeIds={dailyMenu.recipes.map((r) => r.id)}
       />
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - Floating Style */}
       <nav 
-        className="bg-white border-t border-gray-200 fixed left-0 right-0 z-50"
+        className="fixed left-0 right-0 z-50"
         style={{ 
-          bottom: 'var(--safari-address-bar-height, 44px)',
-          paddingBottom: 'calc(0.5rem + var(--safe-area-inset-bottom))'
+          bottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)',
+          paddingLeft: 'env(safe-area-inset-left, 0px)',
+          paddingRight: 'env(safe-area-inset-right, 0px)',
         }}
       >
-        <div className="max-w-7xl mx-auto px-2 sm:px-4">
-          <div className="flex justify-around relative">
-            {/* 슬라이드 인디케이터 */}
-            <div
-              className="absolute top-0 h-0.5 bg-[#4D99CC] transition-all duration-300 ease-in-out"
-              style={{
-                width: `calc(100% / ${tabs.length})`,
-                left: `calc(${(tabs.findIndex(t => t.id === activeTab) / tabs.length) * 100}%)`,
-              }}
-            />
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  // 레시피 탭으로 돌아올 때는 menu 상태로 리셋
-                  if (tab.id === 'recipes') {
-                    setViewState('menu');
-                  }
+        <div 
+          className={`mx-4 mb-4 rounded-2xl shadow-lg backdrop-blur-xl border border-white/20 transition-opacity ${
+            viewState !== 'menu' ? 'bg-white/50 opacity-60' : 'bg-white/80'
+          }`}
+          style={{
+            paddingTop: '0.75rem',
+            paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <div className="max-w-7xl mx-auto px-2 sm:px-4">
+            <div className="flex justify-around relative">
+              {/* 슬라이드 인디케이터 */}
+              <div
+                className="absolute top-0 h-0.5 bg-[#4D99CC] transition-all duration-300 ease-in-out rounded-full"
+                style={{
+                  width: `calc(100% / ${tabs.length})`,
+                  left: `calc(${(tabs.findIndex(t => t.id === activeTab) / tabs.length) * 100}%)`,
                 }}
-                className={`flex flex-col items-center py-2 px-2 sm:py-3 sm:px-4 transition-colors relative flex-1 ${
-                  activeTab === tab.id
-                    ? 'text-[#4D99CC]'
-                    : 'text-gray-500 hover:text-[#1A1A1A]'
-                }`}
-              >
-                <span className="text-lg sm:text-xl mb-0.5 sm:mb-1">{tab.icon}</span>
-                <span className="text-[10px] sm:text-xs font-medium">{tab.label}</span>
-              </button>
-            ))}
+              />
+              {tabs.map((tab) => {
+                const isCooking = viewState !== 'menu';
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      if (isCooking) return; // 요리 진행 중에는 클릭 무시
+                      setActiveTab(tab.id);
+                      // 레시피 탭으로 돌아올 때는 menu 상태로 리셋
+                      if (tab.id === 'recipes') {
+                        setViewState('menu');
+                      }
+                    }}
+                    disabled={isCooking}
+                    className={`flex flex-col items-center py-2 px-2 sm:py-3 sm:px-4 transition-colors relative flex-1 ${
+                      isCooking
+                        ? 'opacity-50 cursor-not-allowed'
+                        : activeTab === tab.id
+                        ? 'text-[#4D99CC]'
+                        : 'text-gray-500 hover:text-[#1A1A1A]'
+                    }`}
+                  >
+                    <span className="text-lg sm:text-xl mb-0.5 sm:mb-1">{tab.icon}</span>
+                    <span className="text-[10px] sm:text-xs font-medium">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </nav>

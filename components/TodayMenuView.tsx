@@ -231,11 +231,8 @@ export default function TodayMenuView({
           )}
         </div>
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>
-                오늘의 도시락
-              </h2>
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
               {isEditingServings ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -290,7 +287,7 @@ export default function TodayMenuView({
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               {onEdit && (
                 <button
                   onClick={onEdit}
@@ -393,11 +390,8 @@ export default function TodayMenuView({
         )}
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>
-              오늘의 도시락
-            </h2>
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
             {isEditingServings ? (
               <div className="flex items-center gap-2">
                 <input
@@ -504,13 +498,13 @@ export default function TodayMenuView({
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{
-            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+            bottom: `calc(80px + 10px + env(safe-area-inset-bottom, 0px))`
           }}
         >
           <div className="max-w-4xl mx-auto">
             <button
               onClick={onStartCooking}
-              className="w-full py-4 bg-[#4D99CC] text-white rounded-xl font-semibold text-lg hover:bg-[#3d89bc] transition-colors shadow-lg"
+              className="w-full py-6 bg-[#4D99CC] text-white rounded-xl font-semibold text-lg hover:bg-[#3d89bc] transition-colors shadow-lg"
             >
               요리 시작
             </button>

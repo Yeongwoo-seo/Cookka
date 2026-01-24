@@ -38,7 +38,7 @@ export default function MainTabView() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(70px + var(--safari-address-bar-height, 44px) + var(--safe-area-inset-bottom))' }}>
+      <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'recipes' && <RecipeBoardView />}
         {activeTab === 'inventory' && <InventoryView />}
@@ -46,30 +46,43 @@ export default function MainTabView() {
         {activeTab === 'team' && <TeamSettingsView />}
       </main>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - Floating Style */}
       <nav 
-        className="bg-white border-t border-gray-200 fixed left-0 right-0 z-50"
+        className="fixed left-0 right-0 z-50"
         style={{ 
-          bottom: 'var(--safari-address-bar-height, 44px)',
-          paddingBottom: 'calc(0.5rem + var(--safe-area-inset-bottom))'
+          bottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)',
+          paddingLeft: 'env(safe-area-inset-left, 0px)',
+          paddingRight: 'env(safe-area-inset-right, 0px)',
         }}
       >
-        <div className="max-w-7xl mx-auto px-2 sm:px-4">
-          <div className="flex justify-around">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center py-2 px-2 sm:py-3 sm:px-4 transition-colors ${
-                  activeTab === tab.id
-                    ? 'text-[#4D99CC] border-t-2 border-[#4D99CC]'
-                    : 'text-gray-500 hover:text-[#1A1A1A]'
-                }`}
-              >
-                <span className="text-lg sm:text-xl mb-0.5 sm:mb-1">{tab.icon}</span>
-                <span className="text-[10px] sm:text-xs font-medium">{tab.label}</span>
-              </button>
-            ))}
+        <div 
+          className="mx-4 mb-4 rounded-2xl shadow-lg backdrop-blur-xl bg-white/80 border border-white/20"
+          style={{
+            paddingTop: '0.75rem',
+            paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <div className="max-w-7xl mx-auto px-2 sm:px-4">
+            <div className="flex justify-around">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex flex-col items-center py-2 px-2 sm:py-3 sm:px-4 transition-colors ${
+                    activeTab === tab.id
+                      ? 'text-[#4D99CC]'
+                      : 'text-gray-500 hover:text-[#1A1A1A]'
+                  }`}
+                >
+                  <span className="text-lg sm:text-xl mb-0.5 sm:mb-1">{tab.icon}</span>
+                  <span className="text-[10px] sm:text-xs font-medium">{tab.label}</span>
+                  {activeTab === tab.id && (
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-[#4D99CC] rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </nav>

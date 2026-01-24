@@ -140,26 +140,21 @@ export default function RecipeBoardView() {
                       }`}
                     >
                       {/* 헤더 */}
-                      <div className="p-4 flex-1">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          {/* 왼쪽: 레시피 이름과 카테고리 */}
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <p className="font-semibold text-base text-[#1A1A1A] truncate">
-                              {r.name}
-                            </p>
-                            {r.category && (
-                              <span 
-                                className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
-                                  getRecipeCategoryColor(r.category)
-                                }`}
-                              >
-                                {r.category}
-                              </span>
-                            )}
-                          </div>
+                      <div className="p-4 flex-1 flex flex-col">
+                        {/* 카테고리와 수정/삭제 버튼 */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          {r.category && (
+                            <span 
+                              className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
+                                getRecipeCategoryColor(r.category)
+                              }`}
+                            >
+                              {r.category}
+                            </span>
+                          )}
                           
                           {/* 오른쪽: 수정/삭제 아이콘 */}
-                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                          <div className="flex items-center gap-0.5 flex-shrink-0 ml-auto">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -188,8 +183,14 @@ export default function RecipeBoardView() {
                             </button>
                           </div>
                         </div>
+                        
+                        {/* 요리 제목 */}
+                        <p className="font-semibold text-base text-[#1A1A1A] line-clamp-2 flex-1">
+                          {r.name}
+                        </p>
+                        
                         {r.description && (
-                          <p className="text-sm text-gray-600 truncate">{r.description}</p>
+                          <p className="text-sm text-gray-600 truncate mt-1">{r.description}</p>
                         )}
                       </div>
                       
@@ -546,7 +547,7 @@ export default function RecipeBoardView() {
         <div 
           className="fixed right-6 z-50"
           style={{
-            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+            bottom: `calc(80px + 10px + env(safe-area-inset-bottom, 0px))`
           }}
         >
           <button

@@ -299,7 +299,7 @@ export default function CookingView({
     <div className="w-full">
       <div className="bg-transparent">
         {/* Progress Board - 항상 위에 고정, 2열 그리드 */}
-        <div className="sticky top-0 z-10 bg-white pb-4 mb-8 border-b border-gray-200">
+        <div className="sticky top-0 z-10 bg-white pt-4 pb-4 mb-8 border-b border-gray-200 shadow-sm">
           <div className="grid grid-cols-2 gap-4">
             {dailyMenu.recipes.map((recipe, index) => {
               const progress = getRecipeProgress(recipe);
@@ -312,9 +312,9 @@ export default function CookingView({
               return (
                 <div key={recipe.id} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span
-                        className={`text-sm font-medium ${
+                        className={`text-sm font-medium truncate ${
                           isHighlighted ? 'highlight-pulse' : ''
                         }`}
                         style={{ color: '#1A1A1A' }}
@@ -449,7 +449,7 @@ export default function CookingView({
                       backgroundColor: backgroundColor || undefined
                     }}
                   >
-                <div className={`px-6 py-4 flex items-center justify-between ${
+                <div className={`px-6 py-4 ${
                   timerActive || timerEnded
                     ? '' // 배경색은 상위 div에서 처리
                     : isRecipeComplete 
@@ -458,98 +458,101 @@ export default function CookingView({
                 }`}
                 style={timerActive ? { backgroundColor: '#EFF6FF' } : timerEnded ? { backgroundColor: '#FEF2F2' } : undefined}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold" style={{ color: '#1A1A1A' }}>
-                      {recipe.name}
-                    </span>
-                    <svg
-                      className={`w-5 h-5 transition-transform ${
-                        isExpanded ? 'rotate-180' : ''
-                      }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                    {/* 타이머 시간 - 스톱워치 아이콘 왼쪽에 표시 */}
-                    {nextStep && timers.has(nextStep.id) && (
-                      <span className="ml-2 text-sm font-mono font-semibold" style={{ color: '#1A1A1A' }}>
-                        {formatTime(timers.get(nextStep.id)!.remaining)}
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-2 flex-1 min-w-0" style={{ minWidth: '200px', flexBasis: '50%' }}>
+                      <span className="font-semibold truncate" style={{ color: '#1A1A1A' }}>
+                        {recipe.name}
                       </span>
-                    )}
-                    {/* 스톱워치 아이콘 - 시간이 명시된 경우에만 표시 */}
-                    {nextStep && extractDurationFromText(nextStep.description) && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const extractedDuration = extractDurationFromText(nextStep.description);
-                          if (extractedDuration) {
-                            if (timers.has(nextStep.id)) {
-                              // 타이머가 실행 중이면 정지
-                              stopTimer(nextStep.id);
-                            } else {
-                              // 타이머가 없으면 시작
-                              startTimer(nextStep.id, extractedDuration);
-                            }
-                          }
-                        }}
-                        className={`ml-2 p-1 hover:bg-gray-100 rounded transition-colors ${
-                          timers.has(nextStep.id) ? 'text-[#4D99CC]' : 'text-gray-400'
+                      <svg
+                        className={`w-5 h-5 transition-transform flex-shrink-0 ${
+                          isExpanded ? 'rotate-180' : ''
                         }`}
-                        title={timers.has(nextStep.id) ? '타이머 정지' : '타이머 시작'}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    {/* 현재 단계 정보 */}
-                    <div className="flex flex-col items-end max-w-xs">
-                      {isRecipeComplete ? (
-                        <span className="text-sm text-gray-600">완료</span>
-                      ) : nextStep ? (
-                        <span className="text-sm font-medium text-right" style={{ color: '#1A1A1A' }}>
-                          {nextStep.order}단계 - {nextStep.description}
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                      {/* 타이머 시간 - 스톱워치 아이콘 왼쪽에 표시 */}
+                      {nextStep && timers.has(nextStep.id) && (
+                        <span className="ml-2 text-sm font-mono font-semibold flex-shrink-0" style={{ color: '#1A1A1A' }}>
+                          {formatTime(timers.get(nextStep.id)!.remaining)}
                         </span>
-                      ) : null}
+                      )}
+                      {/* 스톱워치 아이콘 - 시간이 명시된 경우에만 표시 */}
+                      {nextStep && extractDurationFromText(nextStep.description) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const extractedDuration = extractDurationFromText(nextStep.description);
+                            if (extractedDuration) {
+                              if (timers.has(nextStep.id)) {
+                                // 타이머가 실행 중이면 정지
+                                stopTimer(nextStep.id);
+                              } else {
+                                // 타이머가 없으면 시작
+                                startTimer(nextStep.id, extractedDuration);
+                              }
+                            }
+                          }}
+                          className={`ml-2 p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0 ${
+                            timers.has(nextStep.id) ? 'text-[#4D99CC]' : 'text-gray-400'
+                          }`}
+                          title={timers.has(nextStep.id) ? '타이머 정지' : '타이머 시작'}
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                     
-                    {/* 다음 버튼 */}
-                    {nextStep && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const stepInfo = findStepInRecipe(nextStep.id);
-                          if (stepInfo) {
-                            const { step } = stepInfo;
-                            const extractedDuration = extractDurationFromText(step.description);
-                            toggleStep(nextStep.id, extractedDuration || undefined);
-                          }
-                        }}
-                        className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg font-medium text-sm hover:bg-[#3d89bc] transition-colors shadow-sm"
-                      >
-                        다음
-                      </button>
-                    )}
+                    <div className="flex items-center gap-4 flex-shrink-0" style={{ minWidth: '200px', flexBasis: '50%', justifyContent: 'flex-end' }}>
+                      {/* 현재 단계 정보 */}
+                      <div className="flex flex-col items-end flex-1 min-w-0">
+                        {isRecipeComplete ? (
+                          <span className="text-sm text-gray-600 whitespace-nowrap">완료</span>
+                        ) : nextStep ? (
+                          <span className="text-sm font-medium text-right break-words" style={{ color: '#1A1A1A' }}>
+                            {nextStep.order}단계 - {nextStep.description}
+                          </span>
+                        ) : null}
+                      </div>
+                      
+                      {/* 다음 버튼 */}
+                      {nextStep && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const stepInfo = findStepInRecipe(nextStep.id);
+                            if (stepInfo) {
+                              const { step } = stepInfo;
+                              const extractedDuration = extractDurationFromText(step.description);
+                              toggleStep(nextStep.id, extractedDuration || undefined);
+                            }
+                          }}
+                          className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg font-medium text-sm hover:bg-[#3d89bc] transition-colors shadow-sm whitespace-nowrap flex-shrink-0"
+                          style={{ minWidth: '60px', width: '60px' }}
+                        >
+                          다음
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -709,15 +712,15 @@ export default function CookingView({
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{ 
-            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`,
-            paddingBottom: 'var(--safe-area-inset-bottom)'
+            bottom: `calc(80px + 10px + env(safe-area-inset-bottom, 0px))`,
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
           <div className="max-w-4xl mx-auto">
             <button
               onClick={allRecipesComplete ? onComplete : undefined}
               disabled={!allRecipesComplete}
-              className={`w-full py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg flex items-center justify-center gap-2 ${
+              className={`w-full py-6 rounded-xl font-semibold text-lg transition-colors shadow-lg flex items-center justify-center gap-2 ${
                 allRecipesComplete
                   ? 'bg-[#4D99CC] text-white hover:bg-[#3d89bc] cursor-pointer'
                   : 'bg-white text-gray-400 cursor-not-allowed border border-gray-300'
