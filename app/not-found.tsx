@@ -1,3 +1,5 @@
+'use client';
+
 // 정적 생성 방지 (타임아웃 방지)
 export const dynamic = 'force-dynamic';
 

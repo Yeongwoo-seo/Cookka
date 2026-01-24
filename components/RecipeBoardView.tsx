@@ -188,7 +188,7 @@ export default function RecipeBoardView() {
                         
                         {/* 세 번째 줄: 설명 */}
                         {r.description && (
-                          <p className="text-sm text-gray-600 truncate">{r.description}</p>
+                          <p className="text-sm text-gray-600 truncate mt-1">{r.description}</p>
                         )}
                       </div>
                       
@@ -545,7 +545,7 @@ export default function RecipeBoardView() {
         <div 
           className="fixed right-6 z-50"
           style={{
-            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+            bottom: `calc(70px + 10px + env(safe-area-inset-bottom, 0px))`
           }}
         >
           <button

@@ -75,6 +75,24 @@ body {
   background-color: var(--background-color);
   color: var(--text-color);
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif !important;
+  height: 100vh;
+}
+
+@supports (-webkit-touch-callout: none) {
+  body {
+    height: -webkit-fill-available;
+  }
+}
+
+/* 사파리 하단 주소창에 맞춘 높이 조정 */
+.safari-full-height {
+  height: 100vh;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .safari-full-height {
+    height: -webkit-fill-available;
+  }
 }
 
 div, span, p, h1, h2, h3, h4, h5, h6, a, button, input, textarea, select, label, li, ul, ol, td, th, table {

@@ -1,0 +1,39 @@
+PowerShell 또는 cmd에서 실행할 명령어:
+
+1. Lock 파일 삭제:
+   PowerShell:
+   Remove-Item -Force -ErrorAction SilentlyContinue ".git\index.lock"
+   Remove-Item -Force -ErrorAction SilentlyContinue ".git\config.lock"
+   
+   또는 cmd:
+   del /f /q .git\index.lock
+   del /f /q .git\config.lock
+
+2. 변경사항 추가:
+   git add .
+
+3. 커밋:
+   git commit -m "Fix: Vercel build timeout, viewport metadata, event handler error, and add version info"
+
+4. 푸시:
+   git push
+
+전체 명령어 (PowerShell):
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+Remove-Item -Force -ErrorAction SilentlyContinue ".git\index.lock"
+Remove-Item -Force -ErrorAction SilentlyContinue ".git\config.lock"
+git add .
+git commit -m "Fix: Vercel build timeout, viewport metadata, event handler error, and add version info"
+git push
+
+전체 명령어 (cmd):
+cd "C:\Users\kjaso\OneDrive\Desktop\Projects\3. Cookka"
+del /f /q .git\index.lock 2>nul
+del /f /q .git\config.lock 2>nul
+git add .
+git commit -m "Fix: Vercel build timeout, viewport metadata, event handler error, and add version info"
+git push
+
+주의:
+- 네트워크 문제가 있으면 나중에 git push를 다시 시도하세요
+- OneDrive 동기화 문제가 계속되면 프로젝트를 OneDrive 외부로 이동하는 것을 고려하세요

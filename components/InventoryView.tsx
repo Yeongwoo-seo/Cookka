@@ -591,7 +591,7 @@ export default function InventoryView() {
         onClick={() => setIsAddModalOpen(true)}
         className="fixed right-6 z-50 w-14 h-14 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center justify-center"
         style={{
-          bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+          bottom: `calc(70px + 10px + env(safe-area-inset-bottom, 0px))`
         }}
         title="재고 등록"
       >
