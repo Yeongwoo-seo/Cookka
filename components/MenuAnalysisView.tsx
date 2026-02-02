@@ -1927,6 +1927,7 @@ export default function MenuAnalysisView() {
                                         name: row.name?.trim() || orig?.name || '재료',
                                         quantity: parseFloat(row.quantity) ?? orig?.quantity ?? 0,
                                         unit: 'g', // 원가관리 통일: g
+                                        costPerUnit: orig?.costPerUnit ?? 0, // 명시적으로 costPerUnit 설정
                                       };
                                     });
                                     const newBaseServings = parseInt(editingBaseServings) || mainRecipe.baseServings;
