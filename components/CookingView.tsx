@@ -542,7 +542,7 @@ export default function CookingView({
                       )}
                     </div>
                     {/* 가운데: 조리 단계 텍스트 (좌우 여백으로 버튼과 분리) */}
-                    <div className="flex-1 min-w-0 px-4 flex items-center">
+                    <div className="flex-1 min-w-0 pl-8 pr-4 flex items-center">
                       {isRecipeComplete ? (
                         <span className="text-sm text-gray-600">완료</span>
                       ) : nextStep ? (() => {
@@ -558,7 +558,7 @@ export default function CookingView({
                         );
                       })() : null}
                     </div>
-                    {/* 오른쪽 고정: 다음 버튼 */}
+                    {/* 오른쪽 고정: 다음 버튼 (SVG) */}
                     <div className="flex-shrink-0 w-[60px] flex justify-end">
                       {nextStep && (() => {
                         // 현재 레시피의 nextStep인지 확인
@@ -578,10 +578,23 @@ export default function CookingView({
                                 toggleStep(nextStep.id, extractedDuration || undefined);
                               }
                             }}
-                            className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg font-medium text-sm hover:bg-[#3d89bc] transition-colors shadow-sm whitespace-nowrap"
-                            style={{ minWidth: '60px' }}
+                            className="p-2 bg-[#4D99CC] text-white rounded-lg hover:bg-[#3d89bc] transition-colors shadow-sm flex items-center justify-center"
+                            style={{ minWidth: '48px', minHeight: '48px' }}
+                            title="다음"
                           >
-                            다음
+                            <svg
+                              className="w-6 h-6"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
                           </button>
                         ) : null;
                       })()}
@@ -741,11 +754,11 @@ export default function CookingView({
           })()}
         </div>
 
-        {/* 조리 완료 플로팅 버튼 - 네비게이션 바로 위 */}
+        {/* 조리 완료 플로팅 버튼 - 네비게이션 바로 위 (요리시작 버튼과 같은 위치) */}
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{ 
-            bottom: `calc(70px + 10px + env(safe-area-inset-bottom, 0px))`,
+            bottom: `calc(70px + 25px + env(safe-area-inset-bottom, 0px))`,
             paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
@@ -753,11 +766,12 @@ export default function CookingView({
             <button
               onClick={allRecipesComplete ? onComplete : undefined}
               disabled={!allRecipesComplete}
-              className={`w-full py-6 rounded-xl font-semibold text-lg transition-colors shadow-lg flex items-center justify-center gap-2 ${
+              className={`w-full rounded-xl font-semibold text-lg transition-colors shadow-lg flex items-center justify-center gap-2 ${
                 allRecipesComplete
                   ? 'bg-[#4D99CC] text-white hover:bg-[#3d89bc] cursor-pointer'
                   : 'bg-white text-gray-400 cursor-not-allowed border border-gray-300'
               }`}
+              style={{ paddingTop: '1.375rem', paddingBottom: '1.375rem' }}
             >
               <svg
                 className="w-5 h-5"
