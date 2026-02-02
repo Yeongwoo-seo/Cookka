@@ -346,15 +346,17 @@ async function importRecipes(data: any[]): Promise<void> {
 
       // 새 레시피 생성
       const recipeName = String(row.레시피명 || row.name || row.recipeName).trim();
-      const category = (row.카테고리 || row.category || '기타') as RecipeCategory;
+      const categoryInput = String(row.카테고리 || row.category || '기본 반찬').trim();
+      const validCategories: RecipeCategory[] = ['밥', '메인 요리', '사이드 요리', '기본 반찬', '국'];
+      const category: RecipeCategory = validCategories.includes(categoryInput as RecipeCategory)
+        ? (categoryInput as RecipeCategory)
+        : '기본 반찬';
       
       currentRecipe = {
         id: row.id || `recipe_${Date.now()}_${i}`,
         name: recipeName,
         description: row.설명 || row.description || '',
-        category: ['밥', '메인 요리', '사이드 요리', '기본 반찬', '국'].includes(category) 
-          ? category 
-          : '기타',
+        category,
         color: row.색상 || row.color || undefined,
         targetServings: parseInt(row.목표인분 || row.targetServings || 1) || 1,
         baseServings: parseInt(row.기준인분 || row.baseServings || 1) || 1,
