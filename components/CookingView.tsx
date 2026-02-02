@@ -560,23 +560,31 @@ export default function CookingView({
                     </div>
                     {/* 오른쪽 고정: 다음 버튼 */}
                     <div className="flex-shrink-0 w-[60px] flex justify-end">
-                      {nextStep && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const stepInfo = findStepInRecipe(nextStep.id);
-                            if (stepInfo) {
-                              const { step } = stepInfo;
-                              const extractedDuration = extractDurationFromText(step.description);
-                              toggleStep(nextStep.id, extractedDuration || undefined);
-                            }
-                          }}
-                          className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg font-medium text-sm hover:bg-[#3d89bc] transition-colors shadow-sm whitespace-nowrap"
-                          style={{ minWidth: '60px' }}
-                        >
-                          다음
-                        </button>
-                      )}
+                      {nextStep && (() => {
+                        // 현재 레시피의 nextStep인지 확인
+                        const currentRecipeNextStep = recipe.steps.find((s) => s.id === nextStep.id);
+                        // 현재 레시피의 다음 단계가 맞는지 확인
+                        const isCurrentRecipeStep = currentRecipeNextStep !== undefined;
+                        
+                        return isCurrentRecipeStep ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              const stepInfo = findStepInRecipe(nextStep.id);
+                              if (stepInfo && stepInfo.recipe.id === recipe.id) {
+                                const { step } = stepInfo;
+                                const extractedDuration = extractDurationFromText(step.description);
+                                toggleStep(nextStep.id, extractedDuration || undefined);
+                              }
+                            }}
+                            className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg font-medium text-sm hover:bg-[#3d89bc] transition-colors shadow-sm whitespace-nowrap"
+                            style={{ minWidth: '60px' }}
+                          >
+                            다음
+                          </button>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </div>

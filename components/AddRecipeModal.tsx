@@ -1056,7 +1056,7 @@ export default function AddRecipeModal({ isOpen, onClose, onAdd, initialRecipe }
                             type="number"
                             value={ing.quantity ?? ''}
                             onChange={(e) => {
-                              const updatedIngredients = extractedIngredients.map((i) =>
+                              const updatedIngredients: typeof extractedIngredients = extractedIngredients.map((i) =>
                                 i.id === ing.id
                                   ? { ...i, quantity: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) }
                                   : i
