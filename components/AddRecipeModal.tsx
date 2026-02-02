@@ -819,7 +819,7 @@ export default function AddRecipeModal({ isOpen, onClose, onAdd, initialRecipe }
       baseServings: typeof baseServings === 'number' ? baseServings : 1,
       ingredients: extractedIngredients.map(ing => ({
         ...ing,
-        quantity: ing.quantity ?? 0
+        quantity: (ing.quantity ?? 0) as number
       })),
       steps: extractedSteps,
       images: initialRecipe?.images || [],
@@ -1058,7 +1058,7 @@ export default function AddRecipeModal({ isOpen, onClose, onAdd, initialRecipe }
                             onChange={(e) => {
                               const updatedIngredients = extractedIngredients.map((i) =>
                                 i.id === ing.id
-                                  ? { ...i, quantity: e.target.value === '' ? undefined : (parseFloat(e.target.value) || 0) }
+                                  ? { ...i, quantity: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) }
                                   : i
                               );
                               setExtractedIngredients(updatedIngredients);
