@@ -23,7 +23,7 @@ export default function RecipeSelectModal({
 }: RecipeSelectModalProps) {
   const recipes = useAppStore((state) => state.recipes);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(currentRecipeIds));
-  const [servings, setServings] = useState<number>(currentServings);
+  const [servings, setServings] = useState<number | undefined>(currentServings);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<RecipeCategory | '전체'>('전체');
 
