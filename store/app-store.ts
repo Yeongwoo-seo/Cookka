@@ -4,7 +4,6 @@ import { InventoryItem, sampleInventory } from '@/types/inventory';
 import { BusinessMetrics, sampleBusinessMetrics } from '@/types/business-metrics';
 import { Team, User } from '@/types/team';
 import { DailyMenu, RawDailyMenu } from '@/types/daily-menu';
-import { Recipe } from '@/types/recipe';
 import { format, addDays, getDay } from 'date-fns';
 
 function resolveDailyMenus(rawMap: Map<string, RawDailyMenu>, recipes: Recipe[]): Map<string, DailyMenu> {
