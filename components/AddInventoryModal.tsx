@@ -169,7 +169,6 @@ export default function AddInventoryModal({
     // 폼 초기화
     if (!isEditMode) {
       setName('');
-      setUnit('kg');
       setCurrentStock('');
       setCostPerUnit('');
       setExpirationDate('');
@@ -180,7 +179,6 @@ export default function AddInventoryModal({
   const handleClose = () => {
     // 폼 초기화
     setName('');
-    setUnit('kg');
     setCurrentStock('');
     setCostPerUnit('');
     setExpirationDate('');
