@@ -2047,12 +2047,18 @@ export default function MenuAnalysisView() {
                               : ingredient;
                             const isEditRow = editingRecipeIngredientsId === recipe.id;
                             const rowData = isEditRow ? (ingredient as { id: string; name: string; quantity: string; unit: string }) : null;
-                            const displayIng = isEditRow && rowData ? { ...ing, name: rowData.name, quantity: parseFloat(rowData.quantity) || 0, unit: rowData.unit } : (ing as typeof mainRecipe.ingredients[0]);
+                            const matching = allIngredients.find((i) => i.name === (isEditRow && rowData ? rowData.name : (ing as Ingredient).name) && i.unit === (isEditRow && rowData ? rowData.unit : (ing as Ingredient).unit));
+                            const displayIng: Ingredient = isEditRow && rowData && ing ? { 
+                              ...(ing as Ingredient), 
+                              name: rowData.name, 
+                              quantity: parseFloat(rowData.quantity) || 0, 
+                              unit: rowData.unit,
+                              costPerUnit: (ing as Ingredient).costPerUnit ?? 0
+                            } : (ing as Ingredient);
                             // 수정 모드: n인분 기준 그대로, 일반 모드: 1인분 기준으로 변환
                             const currentBaseServings = editingRecipeIngredientsId === recipe.id ? (parseInt(editingBaseServings) || mainRecipe.baseServings) : mainRecipe.baseServings;
                             const quantityPerServing = isEditRow ? displayIng.quantity : displayIng.quantity / mainRecipe.baseServings;
                             const displayQuantityForEdit = isEditRow ? displayIng.quantity : quantityPerServing;
-                            const matching = allIngredients.find((i) => i.name === displayIng.name && i.unit === displayIng.unit);
                             const costPerUnit = localPrices.get(`${displayIng.name}_${displayIng.unit}`) ?? getEffectiveCostPerUnit(matching ?? displayIng, ingredientProducts);
                             // 수정 모드: n인분 기준 수량으로 원가 계산, 일반 모드: 1인분 기준
                             const quantityForCost = isEditRow ? displayIng.quantity : quantityPerServing;
