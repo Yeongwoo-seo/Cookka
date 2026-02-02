@@ -196,7 +196,8 @@ async function importIngredients(data: any[]): Promise<void> {
       }
     } else {
       // 제품 정보가 없는 행에서만 재료 레벨 원가 업데이트
-      if (ingredientCostPerUnit > 0 && (entry.ingredient.costPerUnit === 0 || ingredientCostPerUnit < entry.ingredient.costPerUnit)) {
+      const currentCostPerUnit = entry.ingredient.costPerUnit ?? 0;
+      if (ingredientCostPerUnit > 0 && (currentCostPerUnit === 0 || ingredientCostPerUnit < currentCostPerUnit)) {
         entry.ingredient.costPerUnit = ingredientCostPerUnit;
         console.log(`  💰 재료 원가 업데이트: $${ingredientCostPerUnit}/kg`);
       }
