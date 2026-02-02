@@ -9,6 +9,17 @@ interface CookingCompleteViewProps {
   dailyMenu: DailyMenu;
 }
 
+/** 숫자 포맷팅: .0이면 정수로 표시, 천 단위 구분자 추가 */
+function formatNumber(num: number, decimals: number = 1): string {
+  const fixed = num.toFixed(decimals);
+  const numValue = parseFloat(fixed);
+  const baseValue = numValue % 1 === 0 ? numValue.toString() : fixed;
+  // 천 단위 구분자 추가
+  const parts = baseValue.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
 export default function CookingCompleteView({
   dailyMenu,
 }: CookingCompleteViewProps) {
@@ -39,34 +50,21 @@ export default function CookingCompleteView({
     <div className="w-full">
       <div className="bg-transparent">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            {/* GIF 파일이 있으면 사용, 없으면 CSS 애니메이션 체크마크 */}
-            <img
-              src="/checkmark-animation.gif"
-              alt="완료 체크마크"
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                // GIF 로드 실패 시 SVG 애니메이션으로 대체
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const parent = target.parentElement;
-                if (parent && !parent.querySelector('svg')) {
-                  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                  svg.setAttribute('class', 'w-10 h-10 text-green-600');
-                  svg.setAttribute('fill', 'none');
-                  svg.setAttribute('stroke', 'currentColor');
-                  svg.setAttribute('viewBox', '0 0 24 24');
-                  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                  path.setAttribute('stroke-linecap', 'round');
-                  path.setAttribute('stroke-linejoin', 'round');
-                  path.setAttribute('stroke-width', '2');
-                  path.setAttribute('d', 'M5 13l4 4L19 7');
-                  path.setAttribute('class', 'checkmark-path');
-                  svg.appendChild(path);
-                  parent.appendChild(svg);
-                }
-              }}
-            />
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-10 h-10 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
           </div>
           <h2 className="text-3xl font-bold mb-2" style={{ color: '#1A1A1A' }}>
             요리를 완료했습니다!
@@ -77,7 +75,7 @@ export default function CookingCompleteView({
         <div className="bg-white rounded-xl p-6 mb-8 text-center">
           <p className="text-sm text-gray-600 mb-2">예상 수익</p>
           <p className="text-3xl font-bold text-[#4D99CC]">
-            ${(estimatedRevenue / 1000).toFixed(2)}
+            ${formatNumber(estimatedRevenue / 1000, 2)}
           </p>
         </div>
 

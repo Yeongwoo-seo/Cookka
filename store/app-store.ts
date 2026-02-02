@@ -3,8 +3,24 @@ import { Recipe, sampleRecipes } from '@/types/recipe';
 import { InventoryItem, sampleInventory } from '@/types/inventory';
 import { BusinessMetrics, sampleBusinessMetrics } from '@/types/business-metrics';
 import { Team, User } from '@/types/team';
-import { DailyMenu } from '@/types/daily-menu';
+import { DailyMenu, RawDailyMenu } from '@/types/daily-menu';
+import { Recipe } from '@/types/recipe';
 import { format, addDays, getDay } from 'date-fns';
+
+function resolveDailyMenus(rawMap: Map<string, RawDailyMenu>, recipes: Recipe[]): Map<string, DailyMenu> {
+  const resolved = new Map<string, DailyMenu>();
+  rawMap.forEach((raw, dateKey) => {
+    const recipesList = raw.recipeIds
+      .map((id) => recipes.find((r) => r.id === id))
+      .filter((r): r is Recipe => r != null);
+    resolved.set(dateKey, {
+      date: raw.date,
+      recipes: recipesList,
+      servings: raw.servings,
+    });
+  });
+  return resolved;
+}
 // Firebase 함수는 동적으로 import하여 서버 사이드에서의 실행 방지
 
 interface IngredientPrice {
@@ -193,55 +209,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadSampleData: () => {
-    // 샘플 메뉴 히스토리 생성 (선택된 기준일부터 과거 7일)
-    const sampleHistory = new Map<string, DailyMenu>();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // 주말이면 다음 월요일을 기준으로 설정 (RecipeMainView와 동일한 로직)
-    const dayOfWeek = getDay(today); // 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토
-    let baseDate = today;
-    if (dayOfWeek === 0) { // 일요일 → 다음 월요일 (+1일)
-      baseDate = addDays(today, 1);
-    } else if (dayOfWeek === 6) { // 토요일 → 다음 월요일 (+2일)
-      baseDate = addDays(today, 2);
-    }
-    
-    const baseDateKey = format(baseDate, 'yyyy-MM-dd');
-    
-    // 기준일의 메뉴: 흰쌀밥, 제육볶음, 어묵볶음, 콩자반, 콩나물무침
-    const baseDateRecipes = sampleRecipes.filter(r => 
-      ['1', '2', '3', '4', '5'].includes(r.id)
-    );
-    sampleHistory.set(baseDateKey, {
-      date: baseDate,
-      recipes: baseDateRecipes,
-      servings: 50,
-    });
-    
-    // 과거 날짜들은 랜덤하게 메뉴 선택
-    for (let i = 1; i < 7; i++) {
-      const date = new Date(baseDate);
-      date.setDate(date.getDate() - i);
-      const dateKey = format(date, 'yyyy-MM-dd');
-      
-      // 랜덤하게 메뉴 선택 (0~5개)
-      const menuCount = Math.floor(Math.random() * 6);
-      if (menuCount > 0) {
-        sampleHistory.set(dateKey, {
-          date: date,
-          recipes: sampleRecipes.slice(0, menuCount),
-          servings: 50,
-        });
-      }
-    }
-    
+    // 목업 데이터 제거됨 - Firebase에서 실제 데이터 사용
     set({
-      recipes: sampleRecipes,
-      inventory: sampleInventory,
-      businessMetrics: sampleBusinessMetrics,
+      recipes: [],
+      inventory: [],
+      businessMetrics: {
+        todayRevenue: 0,
+        todayCost: 0,
+        menuPerformance: [],
+        productionCount: 0,
+        lastUpdated: new Date(),
+      },
       ingredientPrices: new Map(),
-      dailyMenuHistory: sampleHistory,
+      dailyMenuHistory: new Map(),
     });
   },
 
@@ -259,26 +239,33 @@ export const useAppStore = create<AppState>((set, get) => ({
         getIngredientPrices,
       } = await import('../lib/firestore');
       
-      // Firebase에서 데이터 로드
-      const [recipes, inventory, dailyMenus, businessMetrics, ingredientPrices] = await Promise.all([
+      // Firebase에서 데이터 로드 (식단표는 recipeIds만 저장, Lookup으로 풀 레시피 채움)
+      const [recipes, inventory, rawDailyMenus, businessMetrics, ingredientPrices] = await Promise.all([
         getRecipes(),
         getInventory(),
         getDailyMenus(),
         getBusinessMetrics(),
         getIngredientPrices(),
       ]);
+      const dailyMenuHistory = resolveDailyMenus(rawDailyMenus, recipes);
 
       set({
         recipes,
         inventory,
-        dailyMenuHistory: dailyMenus,
-        businessMetrics,
+        dailyMenuHistory,
+        businessMetrics: businessMetrics || {
+          todayRevenue: 0,
+          todayCost: 0,
+          menuPerformance: [],
+          productionCount: 0,
+          lastUpdated: new Date(),
+        },
         ingredientPrices,
         isFirebaseEnabled: true,
       });
     } catch (error) {
       console.error('Firebase에서 데이터 로드 실패:', error);
-      // Firebase 로드 실패 시 샘플 데이터 사용
+      // Firebase 로드 실패 시 빈 데이터로 초기화
       get().loadSampleData();
     }
   },
@@ -297,10 +284,19 @@ export const useAppStore = create<AppState>((set, get) => ({
           subscribeRecipes,
           subscribeInventory,
           subscribeDailyMenus,
+          subscribeIngredients,
         } = await import('../lib/firestore');
         
         const unsubRecipes = subscribeRecipes((recipes) => {
-          set({ recipes });
+          const prev = get();
+          const dailyMenuHistory = resolveDailyMenus(
+            new Map([...prev.dailyMenuHistory].map(([k, m]) => [
+              k,
+              { date: m.date, recipeIds: m.recipes.map((r) => r.id), servings: m.servings },
+            ])),
+            recipes
+          );
+          set({ recipes, dailyMenuHistory });
         });
         unsubscribers.push(unsubRecipes);
 
@@ -309,10 +305,26 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
         unsubscribers.push(unsubInventory);
 
-        const unsubDailyMenus = subscribeDailyMenus((dailyMenus) => {
-          set({ dailyMenuHistory: dailyMenus });
+        const unsubDailyMenus = subscribeDailyMenus((rawDailyMenus) => {
+          const recipes = get().recipes;
+          set({ dailyMenuHistory: resolveDailyMenus(rawDailyMenus, recipes) });
         });
         unsubscribers.push(unsubDailyMenus);
+
+        // 원가관리-재료: ingredients 컬렉션 실시간 동기화 → 스토어 ingredientPrices 반영
+        const unsubIngredients = subscribeIngredients((ingredients) => {
+          const prices = new Map<string, { name: string; unit: string; costPerUnit: number }>();
+          ingredients.forEach((ing) => {
+            const key = `${ing.name}_${ing.unit}`;
+            prices.set(key, {
+              name: ing.name,
+              unit: ing.unit,
+              costPerUnit: ing.costPerUnit ?? 0,
+            });
+          });
+          set({ ingredientPrices: prices });
+        });
+        unsubscribers.push(unsubIngredients);
 
         set({ isFirebaseEnabled: true });
       } catch (error) {

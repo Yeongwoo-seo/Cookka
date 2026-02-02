@@ -10,8 +10,6 @@ interface AddInventoryModalProps {
   initialItem?: InventoryItem; // 수정 모드용
 }
 
-const units = ['kg', 'g', 'L', 'mL', '개', '봉', '박스', '팩'];
-
 export default function AddInventoryModal({
   isOpen,
   onClose,
@@ -20,7 +18,7 @@ export default function AddInventoryModal({
 }: AddInventoryModalProps) {
   const isEditMode = !!initialItem;
   const [name, setName] = useState(initialItem?.name || '');
-  const [unit, setUnit] = useState(initialItem?.unit || 'kg');
+  const unit = 'g'; // 재료 g 기준 통일
   const [currentStock, setCurrentStock] = useState(initialItem?.currentStock.toString() || '');
   const [costPerUnit, setCostPerUnit] = useState(initialItem?.costPerUnit.toString() || '');
   const [expirationDate, setExpirationDate] = useState(
@@ -71,11 +69,13 @@ export default function AddInventoryModal({
               setName(nameMatch[1].trim());
             }
             
-            // 수량 추출 (숫자 + 단위 패턴)
-            const quantityMatch = text.match(/(\d+\.?\d*)\s*(kg|g|L|mL|개|봉|박스|팩)/);
+            // 수량 추출 (숫자 + 단위). g 기준 통일: kg/L은 g로 변환
+            const quantityMatch = text.match(/(\d+\.?\d*)\s*(kg|g|L|mL|개|봉|박스|팩)?/i);
             if (quantityMatch) {
-              setCurrentStock(quantityMatch[1]);
-              setUnit(quantityMatch[2]);
+              let q = parseFloat(quantityMatch[1]) || 0;
+              const u = (quantityMatch[2] || 'g').toLowerCase();
+              if (u === 'kg' || u === 'l' || u === 'ml') q = u === 'ml' ? q : q * 1000;
+              setCurrentStock(q.toString());
             }
             
             // 가격 추출 ($ 또는 숫자 패턴)
@@ -290,24 +290,13 @@ export default function AddInventoryModal({
               />
             </div>
 
-            {/* 단위 및 현재 재고량 */}
+            {/* 단위(g) 및 현재 재고량 */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  단위 *
+                  단위
                 </label>
-                <select
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
-                >
-                  {units.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
+                <p className="px-4 py-2 text-gray-700 border border-gray-200 rounded-lg bg-gray-50">g</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -329,7 +318,7 @@ export default function AddInventoryModal({
             {/* 원가 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                원가 (단가) * <span className="text-xs text-gray-500">($ 기준)</span>
+                원가 (단가) * <span className="text-xs text-gray-500">($/kg 기준)</span>
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -337,10 +326,9 @@ export default function AddInventoryModal({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={costPerUnit ? (parseFloat(costPerUnit) / 1000).toFixed(2) : ''}
+                  value={costPerUnit || ''}
                   onChange={(e) => {
-                    const dollarValue = parseFloat(e.target.value) || 0;
-                    setCostPerUnit((dollarValue * 1000).toString());
+                    setCostPerUnit(e.target.value === '' ? '' : e.target.value);
                   }}
                   required
                   className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"

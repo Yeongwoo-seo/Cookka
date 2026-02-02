@@ -5,10 +5,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
+    "dev:clean": "powershell -Command \"if (Test-Path .next) { Remove-Item -Recurse -Force .next }; next dev -p 3000\"",
+    "fix": "powershell -Command \"$processes = netstat -ano | Select-String ':3000' | ForEach-Object { ($_ -split '\\s+')[-1] } | Select-Object -Unique; foreach ($procId in $processes) { if ($procId -match '^\\d+$') { taskkill /F /PID $procId 2>$null } }; if (Test-Path .next) { Remove-Item -Recurse -Force .next }; Write-Host '✅ 포트 3000 프로세스 종료 및 .next 캐시 삭제 완료'\"",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "init-firebase": "tsx scripts/init-firebase.ts"
+    "init-firebase": "tsx scripts/init-firebase.ts",
+    "import-excel": "tsx scripts/import-excel.ts",
+    "delete-recent-ingredients": "tsx scripts/delete-recent-ingredients.ts",
+    "delete-today-ingredients": "tsx scripts/delete-recent-ingredients.ts -- --today",
+    "delete-ingredient-prefix": "tsx scripts/delete-recent-ingredients.ts -- --ingredient-prefix",
+    "rename-field": "tsx scripts/rename-field.ts",
+    "set-main-product": "tsx scripts/set-main-product.ts"
   },
   "dependencies": {
     "date-fns": "^3.3.0",
@@ -29,6 +37,7 @@
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "xlsx": "^0.18.5"
   }
 }

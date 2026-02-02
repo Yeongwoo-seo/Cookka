@@ -7,15 +7,14 @@ import { DailyMenu } from '@/types/daily-menu';
 import TodayMenuView from './TodayMenuView';
 import CookingSidePanel from './CookingSidePanel';
 import DashboardView from './DashboardView';
-import InventoryView from './InventoryView';
+import GroceryView from './GroceryView';
 import MenuAnalysisView from './MenuAnalysisView';
-import TeamSettingsView from './TeamSettingsView';
 import RecipeSelectModal from './RecipeSelectModal';
-import RecipeBoardView from './RecipeBoardView';
+import CustomerView from './CustomerView';
 import VersionInfo from './VersionInfo';
 
 type ViewState = 'menu' | 'prep' | 'cooking' | 'complete';
-type Tab = 'recipes' | 'dashboard' | 'inventory' | 'analysis' | 'team';
+type Tab = 'recipes' | 'dashboard' | 'grocery' | 'analysis' | 'customers';
 
 export default function RecipeMainView() {
   const recipes = useAppStore((state) => state.recipes);
@@ -89,11 +88,11 @@ export default function RecipeMainView() {
   };
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'recipes', label: '오늘의 도시락', icon: '📝' },
+    { id: 'recipes', label: '도시락', icon: '📝' },
+    { id: 'grocery', label: '장보기', icon: '🛒' },
+    { id: 'analysis', label: '원가관리', icon: '📈' },
+    { id: 'customers', label: '고객관리', icon: '👥' },
     { id: 'dashboard', label: '대시보드', icon: '📊' },
-    { id: 'inventory', label: '재고', icon: '📦' },
-    { id: 'analysis', label: '분석', icon: '📈' },
-    { id: 'team', label: '레시피', icon: '📋' },
   ];
 
   const handlePrevDay = () => {
@@ -143,21 +142,16 @@ export default function RecipeMainView() {
 
   const handleCloseSidePanel = () => {
     setIsSidePanelOpen(false);
-    // 사이드 패널을 닫을 때 상태 리셋
-    if (viewState !== 'complete') {
-      setViewState('menu');
-      setPreparedIngredients(new Set());
-      setCompletedSteps(new Set());
-    }
+    // 패널 닫을 때 항상 메인(오늘 메뉴)으로 복귀
+    setViewState('menu');
+    setPreparedIngredients(new Set());
+    setCompletedSteps(new Set());
   };
 
   // 모든 탭을 통합된 레이아웃으로 처리
 
   return (
     <div className="flex flex-col relative safari-full-height" style={{ backgroundColor: '#FAFAFB' }}>
-      {/* Version Info */}
-      <VersionInfo />
-      
       {/* Main Content */}
       <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}>
         {activeTab === 'recipes' && viewState === 'menu' && (
@@ -178,9 +172,9 @@ export default function RecipeMainView() {
           />
         )}
         {activeTab === 'dashboard' && <DashboardView />}
-        {activeTab === 'inventory' && <InventoryView />}
+        {activeTab === 'grocery' && <GroceryView />}
         {activeTab === 'analysis' && <MenuAnalysisView />}
-        {activeTab === 'team' && <RecipeBoardView />}
+        {activeTab === 'customers' && <CustomerView />}
       </main>
 
       {/* Cooking Side Panel */}
@@ -201,79 +195,72 @@ export default function RecipeMainView() {
       <RecipeSelectModal
         isOpen={isRecipeModalOpen}
         onClose={() => setIsRecipeModalOpen(false)}
-        onSelect={(recipeIds) => {
+        onSelect={(recipeIds, servings) => {
           const selectedRecipes = recipes.filter((r) => recipeIds.includes(r.id));
           const updatedMenu = {
             ...dailyMenu,
             recipes: selectedRecipes,
+            servings: servings || dailyMenu.servings,
           };
           setDailyMenu(updatedMenu);
           // 메뉴 저장
           saveDailyMenu(updatedMenu);
         }}
         currentRecipeIds={dailyMenu.recipes.map((r) => r.id)}
+        currentServings={dailyMenu.servings}
       />
 
-      {/* Bottom Navigation */}
-      <nav 
-        className="fixed left-0 right-0 z-50"
-        style={{ 
-          bottom: '0px',
-          paddingLeft: 'env(safe-area-inset-left, 0px)',
-          paddingRight: 'env(safe-area-inset-right, 0px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        <div 
-          className={`backdrop-blur-xl border-t border-gray-200 transition-opacity ${
-            viewState !== 'menu' ? 'bg-white/50 opacity-60' : 'bg-white/90'
-          }`}
+      {/* Bottom Navigation - 요리 중(prep/cooking/complete)일 때는 숨김 */}
+      {viewState === 'menu' && (
+        <nav
+          className="fixed left-0 right-0 z-50"
           style={{
-            paddingTop: '0.75rem',
-            paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+            bottom: '0px',
+            paddingLeft: 'env(safe-area-inset-left, 0px)',
+            paddingRight: 'env(safe-area-inset-right, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
           }}
         >
-          <div className="max-w-7xl mx-auto px-2 sm:px-4">
-            <div className="flex justify-around relative">
-              {/* 슬라이드 인디케이터 */}
-              <div
-                className="absolute top-0 h-0.5 bg-[#4D99CC] transition-all duration-300 ease-in-out rounded-full"
-                style={{
-                  width: `calc(100% / ${tabs.length})`,
-                  left: `calc(${(tabs.findIndex(t => t.id === activeTab) / tabs.length) * 100}%)`,
-                }}
-              />
-              {tabs.map((tab) => {
-                const isCooking = viewState !== 'menu';
-                return (
+          <div
+            className="backdrop-blur-xl bg-white/90 border-t border-gray-200"
+            style={{
+              paddingTop: '0.25rem',
+              paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+            }}
+          >
+            <div className="max-w-7xl mx-auto px-2 sm:px-4">
+              <div className="flex justify-around relative">
+                <div
+                  className="absolute top-0 h-1 bg-[#4D99CC] transition-all duration-300 ease-in-out rounded-full"
+                  style={{
+                    width: `calc(100% / ${tabs.length})`,
+                    left: `calc(${(tabs.findIndex(t => t.id === activeTab) / tabs.length) * 100}%)`,
+                  }}
+                />
+                {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => {
-                      if (isCooking) return; // 요리 진행 중에는 클릭 무시
                       setActiveTab(tab.id);
-                      // 레시피 탭으로 돌아올 때는 menu 상태로 리셋
                       if (tab.id === 'recipes') {
                         setViewState('menu');
                       }
                     }}
-                    disabled={isCooking}
-                    className={`flex flex-col items-center py-2 px-2 sm:py-3 sm:px-4 transition-colors relative flex-1 ${
-                      isCooking
-                        ? 'opacity-50 cursor-not-allowed'
-                        : activeTab === tab.id
+                    className={`flex flex-col items-center justify-center py-2 px-2 sm:py-3 sm:px-4 transition-colors relative flex-1 h-16 ${
+                      activeTab === tab.id
                         ? 'text-[#4D99CC]'
                         : 'text-gray-500 hover:text-[#1A1A1A]'
                     }`}
                   >
                     <span className="text-lg sm:text-xl mb-0.5 sm:mb-1">{tab.icon}</span>
-                    <span className="text-[10px] sm:text-xs font-medium">{tab.label}</span>
+                    <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">{tab.label}</span>
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
     </div>
   );
 }

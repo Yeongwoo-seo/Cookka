@@ -56,6 +56,17 @@ const getIngredientCategoryColor = (category: IngredientCategory): string => {
   }
 };
 
+/** 숫자 포맷팅: .0이면 정수로 표시, 천 단위 구분자 추가 */
+function formatNumber(num: number, decimals: number = 1): string {
+  const fixed = num.toFixed(decimals);
+  const numValue = parseFloat(fixed);
+  const baseValue = numValue % 1 === 0 ? numValue.toString() : fixed;
+  // 천 단위 구분자 추가
+  const parts = baseValue.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
 // FIFO 방식으로 원가 계산
 const calculateFIFOCost = (item: InventoryItem): number => {
   if (!item.purchaseHistory || item.purchaseHistory.length === 0) {
@@ -271,7 +282,7 @@ export default function InventoryView() {
   const categories: (IngredientCategory | '전체')[] = ['전체', '육류', '채소', '조미료', '곡물', '기타'];
 
   return (
-    <div className="h-screen flex flex-col max-w-7xl mx-auto px-4 pt-4 pb-24">
+    <div className="h-full flex flex-col max-w-7xl mx-auto px-4 pt-4 pb-6">
       <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col h-full overflow-hidden">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex gap-2 flex-wrap">
@@ -506,7 +517,7 @@ export default function InventoryView() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        ${(calculateWeightedAverageCost(item) / 1000).toFixed(2)}/{item.unit}
+                        ${formatNumber(calculateWeightedAverageCost(item), 2)}/{item.unit}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
@@ -586,29 +597,6 @@ export default function InventoryView() {
         item={selectedItemForHistory}
       />
 
-      {/* 재고 등록 플로팅 버튼 */}
-      <button
-        onClick={() => setIsAddModalOpen(true)}
-        className="fixed right-6 z-50 w-14 h-14 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center justify-center"
-        style={{
-          bottom: `calc(70px + 10px + env(safe-area-inset-bottom, 0px))`
-        }}
-        title="재고 등록"
-      >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 4v16m8-8H4"
-          />
-        </svg>
-      </button>
       </div>
 
       {/* 재고 등록 플로팅 버튼 */}
@@ -616,7 +604,7 @@ export default function InventoryView() {
         onClick={() => setIsAddModalOpen(true)}
         className="fixed right-6 z-50 w-14 h-14 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center justify-center"
         style={{
-          bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 10px + var(--safe-area-inset-bottom))`
+          bottom: `calc(70px + 25px + env(safe-area-inset-bottom, 0px))`
         }}
         title="재고 등록"
       >

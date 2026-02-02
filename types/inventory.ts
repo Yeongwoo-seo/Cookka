@@ -35,27 +35,5 @@ export function isExpired(item: InventoryItem): boolean {
   return item.expirationDate.getTime() < Date.now();
 }
 
-export const sampleInventory: InventoryItem[] = [
-  {
-    id: '1',
-    name: '밥',
-    currentStock: 10.0,
-    unit: 'kg',
-    costPerUnit: 3000,
-    minimumStock: 5.0,
-    expirationDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-    location: '냉장고 A',
-    lastUpdated: new Date(),
-  },
-  {
-    id: '2',
-    name: '김치',
-    currentStock: 3.0,
-    unit: 'kg',
-    costPerUnit: 5000,
-    minimumStock: 5.0,
-    expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    location: '냉장고 B',
-    lastUpdated: new Date(),
-  },
-];
+// 목업 데이터 제거됨 - Firebase에서 실제 데이터 사용
+export const sampleInventory: InventoryItem[] = [];

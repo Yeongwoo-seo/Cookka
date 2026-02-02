@@ -13,12 +13,12 @@
                 },
                 "background": {
                     "activeOnStart": true,
-                    "beginsPattern": ".*",
-                    "endsPattern": "(.*Ready.*|.*Local:.*|.*started server.*)"
+                    "beginsPattern": ".",
+                    "endsPattern": ".*(Ready|Local:|localhost:3000).*"
                 }
             },
             "label": "npm: dev",
-            "detail": "next dev -p 8080",
+            "detail": "next dev -p 3000",
             "isBackground": true
         }
     ]

@@ -4,8 +4,10 @@ import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { Recipe, RecipeCategory, Ingredient, RecipeStep, IngredientCategory, getRecipeCategoryColor } from '@/types/recipe';
 import { useAppStore } from '@/store/app-store';
 import { InventoryItem } from '@/types/inventory';
+import GeminiChatModal from './GeminiChatModal';
 
 interface AddRecipeModalProps {
+  isOpen: boolean;
   onClose: () => void;
   onAdd: (recipe: Recipe) => void;
   initialRecipe?: Recipe; // 수정 모드용
@@ -29,6 +31,9 @@ function extractVideoId(url: string): string | null {
   
   return null;
 }
+
+// 재료는 모두 g 기준 통일
+const DEFAULT_UNIT = 'g';
 
 // YouTube 정보 가져오기 함수 (제목, 설명, 고정 댓글)
 async function fetchYouTubeInfo(videoId: string): Promise<{
@@ -74,54 +79,167 @@ async function fetchYouTubeInfo(videoId: string): Promise<{
 }
 
 // Gemini API를 사용하여 텍스트 정제 및 이름 추출
-async function cleanRecipeTextWithGemini(text: string): Promise<{ cleanedText: string; name: string | null }> {
+async function cleanRecipeTextWithGemini(text: string): Promise<{ cleanedText: string; name: string | null; color?: string; recipe: string; method: string }> {
   try {
+    console.log('=== 📤 Gemini API 요청 ===');
+    console.log('요청할 텍스트 길이:', text.length, '자');
+    console.log('요청할 텍스트 (처음 500자):', text.substring(0, 500));
+    console.log('요청할 텍스트 전체:', text);
+    console.log('=== 요청 정보 끝 ===\n');
+    
+    const requestBody = { text };
     const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(requestBody),
     });
+    
+    console.log('=== 📡 HTTP 응답 수신 ===');
+    console.log('Response Status:', response.status, response.statusText);
+    console.log('Response OK:', response.ok);
+    console.log('Response Headers:', Object.fromEntries(response.headers.entries()));
+    console.log('=== HTTP 응답 수신 끝 ===\n');
 
+    console.log('=== 📡 HTTP 응답 상태 ===');
+    console.log('Status:', response.status, response.statusText);
+    console.log('OK:', response.ok);
+    console.log('=== HTTP 응답 상태 끝 ===\n');
+    
     if (!response.ok) {
-      throw new Error('Gemini API 호출 실패');
+      // 에러 응답에서 상세 정보 추출
+      let errorMessage = `Gemini API 호출 실패 (${response.status})`;
+      let errorData = null;
+      try {
+        const errorText = await response.text();
+        console.log('=== ❌ 에러 응답 본문 ===');
+        console.log('에러 응답 텍스트:', errorText);
+        console.log('=== 에러 응답 끝 ===\n');
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          // JSON 파싱 실패
+        }
+        if (errorData?.error) {
+          errorMessage = errorData.error;
+        }
+        if (errorData?.details) {
+          errorMessage += `: ${errorData.details}`;
+        }
+      } catch (e) {
+        // JSON 파싱 실패 시 기본 메시지 사용
+        console.error('에러 응답 파싱 실패:', e);
+      }
+      
+      console.warn('=== ⚠️ Gemini API 호출 실패 ===');
+      console.warn('Status:', response.status, response.statusText);
+      console.warn('Error Message:', errorMessage);
+      console.warn('=== 실패 정보 끝 ===\n');
+      
+      // 에러를 throw하지 않고 fallback으로 처리
+      return {
+        cleanedText: cleanRecipeText(text),
+        name: null,
+        color: undefined,
+        recipe: '',
+        method: '',
+      };
     }
 
     const data = await response.json();
-    console.log('Gemini API 응답 데이터:', {
-      hasName: !!data.name,
-      hasRecipe: !!data.recipe,
-      hasMethod: !!data.method,
-      hasCleanedText: !!data.cleanedText,
-      name: data.name,
-      recipePreview: data.recipe?.substring(0, 100),
-      methodPreview: data.method?.substring(0, 100),
-      cleanedTextPreview: data.cleanedText?.substring(0, 100)
-    });
+    console.log('=== 📥 Gemini API 응답 데이터 (전체) ===');
+    console.log('응답 데이터 전체:', JSON.stringify(data, null, 2));
+    console.log('응답 데이터 타입:', typeof data);
+    console.log('응답 데이터 키:', Object.keys(data || {}));
+    console.log('\n응답 데이터 상세:');
+    console.log('- name:', data.name, '(타입:', typeof data.name, ', 길이:', data.name?.length || 0, ')');
+    console.log('- recipe:', data.recipe ? `[${data.recipe.length}자] ${data.recipe.substring(0, 200)}...` : '없음');
+    console.log('- method:', data.method ? `[${data.method.length}자] ${data.method.substring(0, 200)}...` : '없음');
+    console.log('- cleanedText:', data.cleanedText ? `[${data.cleanedText.length}자] ${data.cleanedText.substring(0, 200)}...` : '없음');
+    console.log('=== 응답 데이터 끝 ===\n');
     
-    // recipe와 method를 합쳐서 cleanedText 생성
-    const recipePart = data.recipe || '';
-    const methodPart = data.method || '';
+    // recipe와 method 추출
+    let recipePart = data.recipe || '';
+    let methodPart = data.method || '';
+    
+    // recipe와 method가 없으면 cleanedText에서 파싱 시도
+    if (!recipePart && !methodPart && data.cleanedText) {
+      console.log('=== ⚠️ recipe/method가 없어서 cleanedText에서 파싱 시도 ===');
+      console.log('cleanedText 내용:', data.cleanedText.substring(0, 500));
+      
+      // cleanedText에서 [레시피]와 [조리방법] 섹션 찾기
+      const recipeMatch = data.cleanedText.match(/\[레시피\][\s\S]*?(?=\[조리방법\]|$)/i);
+      const methodMatch = data.cleanedText.match(/\[조리방법\][\s\S]*/i);
+      
+      if (recipeMatch) {
+        recipePart = recipeMatch[0].replace(/\[레시피\]/i, '').trim();
+        console.log('cleanedText에서 추출한 recipe:', recipePart.substring(0, 200));
+      }
+      
+      if (methodMatch) {
+        methodPart = methodMatch[0].replace(/\[조리방법\]/i, '').trim();
+        console.log('cleanedText에서 추출한 method:', methodPart.substring(0, 200));
+      }
+      
+      // [레시피]나 [조리방법] 헤더가 없으면 전체를 recipe로 간주
+      if (!recipePart && !methodPart) {
+        recipePart = data.cleanedText.trim();
+        console.log('헤더가 없어서 전체를 recipe로 사용');
+      }
+      
+      console.log('=== 파싱 완료 ===\n');
+    }
+    
+    // recipePart 정제: <br> 태그 제거 (Gemini API가 이미 쉼표로 구분된 형식으로 반환)
+    if (recipePart) {
+      console.log('=== 🧹 재료 텍스트 정제 시작 ===');
+      console.log('정제 전:', recipePart.substring(0, 200));
+      
+      // <br>, <br/>, <br /> 태그만 제거 (이미 쉼표로 구분된 형식이므로 그대로 유지)
+      recipePart = recipePart
+        .replace(/<br\s*\/?>/gi, ' ')  // <br> 태그를 공백으로
+        .replace(/\s+/g, ' ')          // 연속된 공백을 하나로
+        .trim();
+      
+      console.log('정제 후:', recipePart.substring(0, 200));
+      console.log('=== 재료 텍스트 정제 완료 ===\n');
+    }
+    
+    // 최종 cleanedText 생성
     const cleanedText = [recipePart, methodPart].filter(Boolean).join('\n\n');
     
-    console.log('생성된 cleanedText:', {
-      recipeLength: recipePart.length,
-      methodLength: methodPart.length,
-      cleanedTextLength: cleanedText.length,
-      cleanedTextPreview: cleanedText.substring(0, 300)
-    });
+    console.log('=== 📝 최종 결과 ===');
+    console.log('recipe 길이:', recipePart.length, '자');
+    console.log('method 길이:', methodPart.length, '자');
+    console.log('cleanedText 길이:', cleanedText.length, '자');
+    if (recipePart) {
+      console.log('recipe 전체:', recipePart);
+    }
+    if (methodPart) {
+      console.log('method 전체:', methodPart);
+    }
+    console.log('=== 최종 결과 끝 ===\n');
     
+    const colorHex = data.color && /^#[0-9A-Fa-f]{6}$/.test(String(data.color).trim()) ? String(data.color).trim() : undefined;
     return {
-      cleanedText: cleanedText || text,
+      cleanedText: cleanedText || data.cleanedText || text,
       name: data.name || null,
+      color: colorHex,
+      recipe: recipePart,
+      method: methodPart,
     };
   } catch (error) {
-    console.error('Gemini API 오류:', error);
-    // 실패 시 기본 정제 함수 사용
+    console.warn('Gemini API 오류 (fallback 사용):', {
+      error: error instanceof Error ? error.message : String(error),
+      type: error instanceof Error ? error.name : typeof error
+    });
     return {
       cleanedText: cleanRecipeText(text),
       name: null,
+      color: undefined,
+      recipe: '',
+      method: '',
     };
   }
 }
@@ -237,6 +355,7 @@ function parseRecipeFromText(text: string): { ingredients: Ingredient[]; steps: 
     const lowerLine = line.toLowerCase();
     
     // 섹션 헤더 감지 ([레시피] 또는 [조리방법])
+    // "[레시피]" 헤더가 없으면 재료로 파싱하지 않음
     if (lowerLine.includes('[레시피]') || lowerLine === '레시피' || (lowerLine.includes('레시피') && line.length < 20 && !lowerLine.includes('조리'))) {
       currentSection = 'ingredients';
       console.log('재료 섹션 감지:', line);
@@ -248,7 +367,7 @@ function parseRecipeFromText(text: string): { ingredients: Ingredient[]; steps: 
       continue;
     }
     
-    // 재료 파싱
+    // 재료 파싱 - "[레시피]" 헤더가 있어야만 재료로 파싱
     if (currentSection === 'ingredients') {
       // 불필요한 표현 필터링: "약간", "조금", "적당히" 등이 포함된 재료는 제외
       const excludeKeywords = ['약간', '조금', '적당히', '적당', '소량', '조금씩', '약간씩'];
@@ -258,16 +377,65 @@ function parseRecipeFromText(text: string): { ingredients: Ingredient[]; steps: 
         continue; // 이 라인은 건너뛰기
       }
       
-      // 패턴: "재료명 수량단위" 또는 "재료명: 수량단위" 또는 "재료명 수량 단위"
+      // 쉼표로 구분된 재료들을 각각 파싱
+      // 예: "돼지 앞다리살 500g, 양파 2개, 고추장 2큰술"
+      const ingredientItems = line.split(',').map(item => item.trim()).filter(item => item.length > 0);
+      
+      // 패턴: "재료명 수량단위" 또는 "재료명: 수량단위" 또는 "재료명 수량 단위" 또는 "수량단위 재료명"
       // 더 유연한 패턴으로 수정
-      const ingredientMatch = line.match(/(.+?)\s+(\d+(?:\.\d+)?)\s*(g|kg|ml|l|개|컵|큰술|작은술|스푼|티스푼|줌|장|마리|쪽|줄기|뿌리|송이|포기|대|T|tbsp|tsp|숟가락)/i);
-      if (ingredientMatch) {
-        const name = ingredientMatch[1].trim().replace(/[:\-•·]/g, '').trim();
+      const unitPattern = '(g|kg|ml|l|개|컵|큰술|작은술|스푼|티스푼|줌|장|마리|쪽|줄기|뿌리|송이|포기|대|T|tbsp|tsp|숟가락)';
+      const numberPattern = '(\\d+(?:\\.\\d+)?)';
+      
+      // 각 재료 항목을 파싱
+      for (const ingredientItem of ingredientItems) {
         
-        // 재료명에도 불필요한 표현이 포함되어 있는지 다시 확인
+        // 패턴 1: "재료명 수량단위" 또는 "재료명 수량 단위"
+        let ingredientMatch = ingredientItem.match(new RegExp(`(.+?)\\s+${numberPattern}\\s*${unitPattern}`, 'i'));
+        
+        // 패턴 2: "재료명: 수량단위" 또는 "재료명: 수량 단위"
+        if (!ingredientMatch) {
+          ingredientMatch = ingredientItem.match(new RegExp(`(.+?)[:\\-•·]\\s*${numberPattern}\\s*${unitPattern}`, 'i'));
+        }
+        
+        // 패턴 3: "수량단위 재료명"
+        if (!ingredientMatch) {
+          const reverseMatch = ingredientItem.match(new RegExp(`${numberPattern}\\s*${unitPattern}\\s+(.+)`, 'i'));
+          if (reverseMatch) {
+            ingredientMatch = [reverseMatch[0], reverseMatch[3], reverseMatch[1], reverseMatch[2]];
+          }
+        }
+        
+        // 패턴 4: "재료명 수량" (단위 없음, 기본 단위 사용)
+        if (!ingredientMatch) {
+          const noUnitMatch = ingredientItem.match(new RegExp(`(.+?)\\s+${numberPattern}(?!\\s*${unitPattern})`, 'i'));
+          if (noUnitMatch) {
+            const name = noUnitMatch[1].trim().replace(/[:\-•·]/g, '').trim();
+            const quantity = parseFloat(noUnitMatch[2]);
+            ingredientMatch = [noUnitMatch[0], name, noUnitMatch[2], DEFAULT_UNIT];
+          }
+        }
+        
+        if (ingredientMatch) {
+        let name = ingredientMatch[1].trim().replace(/[:\-•·]/g, '').trim();
+        
+        // 해시태그 제거 (#shorts, #shortvideo 등)
+        name = name.replace(/#\w+/g, '').trim();
+        
+        // URL 제거
+        name = name.replace(/https?:\/\/[^\s]+/g, '').trim();
+        
+        // 이모지 제거
+        name = name.replace(/[🔗📌⭐👍❤️💬]/g, '').trim();
+        
+        // 불필요한 표현이 포함되어 있는지 확인
         const nameLower = name.toLowerCase();
         if (excludeKeywords.some(keyword => nameLower.includes(keyword))) {
           continue; // 재료명에 불필요한 표현이 포함되어 있으면 제외
+        }
+        
+        // 해시태그만 있는 경우 제외
+        if (!name || name.length === 0 || name.match(/^[#\s]+$/)) {
+          continue;
         }
         
         const quantity = parseFloat(ingredientMatch[2]);
@@ -280,37 +448,78 @@ function parseRecipeFromText(text: string): { ingredients: Ingredient[]; steps: 
           unit = '작은술';
         }
         
+        // 모든 재료 g 기준 통일: kg/L/ml → g로 변환
+        let qtyG = quantity;
+        const u = (unit || '').toLowerCase();
+        if (u === 'kg') qtyG = quantity * 1000;
+        else if (u === 'l') qtyG = quantity * 1000;
+        else if (u === 'ml') qtyG = quantity;
+        else if (u === 'g') qtyG = quantity;
+        // 개/큰술 등은 수치만 유지, 단위 g
         ingredients.push({
           id: `ingredient-${ingredients.length + 1}`,
           name,
-          quantity,
-          unit,
+          quantity: qtyG,
+          unit: DEFAULT_UNIT,
           costPerUnit: 0,
         });
-      } else {
-        // 단위 없이 재료명만 있는 경우도 처리 (숫자가 포함된 경우)
-        const hasNumber = /\d/.test(line);
-        if (hasNumber && line.length < 100 && line.length > 2 && !line.match(/^\d+$/)) {
-          // 숫자와 함께 있는 경우 재료로 간주
-          const simpleName = line.replace(/[:\-•·]/g, '').trim();
-          if (simpleName.length > 0) {
-            // 재료명에 불필요한 표현이 포함되어 있는지 확인
-            const nameLower = simpleName.toLowerCase();
-            if (excludeKeywords.some(keyword => nameLower.includes(keyword))) {
-              continue; // 불필요한 표현이 포함되어 있으면 제외
-            }
+        } else {
+          // 단위 없이 재료명만 있는 경우도 처리 (숫자가 포함된 경우)
+          const hasNumber = /\d/.test(ingredientItem);
+          
+          // 해시태그나 URL이 포함된 항목은 제외
+          if (ingredientItem.match(/#\w+/) || ingredientItem.match(/https?:\/\//)) {
+            continue;
+          }
+          
+          if (hasNumber && ingredientItem.length < 100 && ingredientItem.length > 2 && !ingredientItem.match(/^\d+$/)) {
+            // 숫자와 함께 있는 경우 재료로 간주
+            let simpleName = ingredientItem.replace(/[:\-•·]/g, '').trim();
             
-            // 숫자 추출 시도
-            const numMatch = simpleName.match(/(.+?)\s+(\d+(?:\.\d+)?)/);
-            if (numMatch) {
-              ingredients.push({
-                id: `ingredient-${ingredients.length + 1}`,
-                name: numMatch[1].trim(),
-                quantity: parseFloat(numMatch[2]),
-                unit: '개',
-                costPerUnit: 0,
-              });
-            } else {
+            // 해시태그, URL, 이모지 제거
+            simpleName = simpleName.replace(/#\w+/g, '').replace(/https?:\/\/[^\s]+/g, '').replace(/[🔗📌⭐👍❤️💬]/g, '').trim();
+            
+            if (simpleName.length > 0) {
+              // 재료명에 불필요한 표현이 포함되어 있는지 확인
+              const nameLower = simpleName.toLowerCase();
+              if (excludeKeywords.some(keyword => nameLower.includes(keyword))) {
+                continue; // 불필요한 표현이 포함되어 있으면 제외
+              }
+              
+              // 숫자 추출 시도
+              const numMatch = simpleName.match(/(.+?)\s+(\d+(?:\.\d+)?)/);
+              if (numMatch) {
+                ingredients.push({
+                  id: `ingredient-${ingredients.length + 1}`,
+                  name: numMatch[1].trim(),
+                  quantity: parseFloat(numMatch[2]),
+                  unit: '개',
+                  costPerUnit: 0,
+                });
+              } else {
+                ingredients.push({
+                  id: `ingredient-${ingredients.length + 1}`,
+                  name: simpleName,
+                  quantity: 1,
+                  unit: '개',
+                  costPerUnit: 0,
+                });
+              }
+            }
+          } else if (!hasNumber && ingredientItem.length < 50 && ingredientItem.length > 2 && !ingredientItem.match(/^\d+$/)) {
+            // 숫자 없이 짧은 항목도 재료로 간주
+            let simpleName = ingredientItem.replace(/[:\-•·]/g, '').trim();
+            
+            // 해시태그, URL, 이모지 제거
+            simpleName = simpleName.replace(/#\w+/g, '').replace(/https?:\/\/[^\s]+/g, '').replace(/[🔗📌⭐👍❤️💬]/g, '').trim();
+            
+            if (simpleName.length > 0) {
+              // 재료명에 불필요한 표현이 포함되어 있는지 확인
+              const nameLower = simpleName.toLowerCase();
+              if (excludeKeywords.some(keyword => nameLower.includes(keyword))) {
+                continue; // 불필요한 표현이 포함되어 있으면 제외
+              }
+              
               ingredients.push({
                 id: `ingredient-${ingredients.length + 1}`,
                 name: simpleName,
@@ -319,24 +528,6 @@ function parseRecipeFromText(text: string): { ingredients: Ingredient[]; steps: 
                 costPerUnit: 0,
               });
             }
-          }
-        } else if (!hasNumber && line.length < 50 && line.length > 2 && !line.match(/^\d+$/)) {
-          // 숫자 없이 짧은 라인도 재료로 간주
-          const simpleName = line.replace(/[:\-•·]/g, '').trim();
-          if (simpleName.length > 0) {
-            // 재료명에 불필요한 표현이 포함되어 있는지 확인
-            const nameLower = simpleName.toLowerCase();
-            if (excludeKeywords.some(keyword => nameLower.includes(keyword))) {
-              continue; // 불필요한 표현이 포함되어 있으면 제외
-            }
-            
-            ingredients.push({
-              id: `ingredient-${ingredients.length + 1}`,
-              name: simpleName,
-              quantity: 1,
-              unit: '개',
-              costPerUnit: 0,
-            });
           }
         }
       }
@@ -396,7 +587,7 @@ async function generateRecipeName(title: string | null, description: string | nu
   }
 }
 
-export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRecipeModalProps) {
+export default function AddRecipeModal({ isOpen, onClose, onAdd, initialRecipe }: AddRecipeModalProps) {
   const isEditMode = !!initialRecipe;
   const [name, setName] = useState(initialRecipe?.name || '');
   const [description, setDescription] = useState(initialRecipe?.description || '');
@@ -412,11 +603,21 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
   const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [youtubeRawContent, setYoutubeRawContent] = useState<string>('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [color, setColor] = useState<string | undefined>(initialRecipe?.color || undefined);
+  const [isGeminiChatOpen, setIsGeminiChatOpen] = useState(false);
+  
+  // 모달이 열릴 때 initialRecipe의 색상으로 초기화
+  useEffect(() => {
+    if (isOpen && initialRecipe) {
+      setColor(initialRecipe.color || undefined);
+    } else if (isOpen && !initialRecipe) {
+      setColor(undefined);
+    }
+  }, [isOpen, initialRecipe]);
   
   // 재고 정보 가져오기
   const inventory = useAppStore((state) => state.inventory);
-  const ingredientPrices = useAppStore((state) => state.ingredientPrices);
-  const updateIngredientPrice = useAppStore((state) => state.updateIngredientPrice);
   
   // 재료 이름을 기반으로 카테고리 자동 분류
   const getIngredientCategory = (name: string): IngredientCategory => {
@@ -461,102 +662,6 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
       default:
         return 'bg-gray-100 text-gray-700';
     }
-  };
-  
-  // 단위 목록 (통용되는 단위만)
-  const unitOptions = [
-    'g', 'kg',
-    'ml', 'L',
-    '큰술', '작은술', '컵',
-    '개', '장', '마리', '모', '단'
-  ];
-  
-  // 단위를 ml 기준으로 변환 (부피 단위)
-  const convertToML = (quantity: number, fromUnit: string): number => {
-    const unit = fromUnit.toLowerCase();
-    switch (unit) {
-      case 'ml': return quantity;
-      case 'l': return quantity * 1000;
-      case '큰술':
-      case '스푼': return quantity * 15; // 1큰술 = 15ml, 스푼 = 큰술
-      case '작은술':
-      case '티스푼': return quantity * 5; // 1작은술 = 5ml, 티스푼 = 작은술
-      case '컵': return quantity * 240; // 1컵 = 240ml
-      default: return quantity; // 변환 불가능한 단위는 그대로
-    }
-  };
-  
-  // ml를 다른 단위로 변환
-  const convertFromML = (ml: number, toUnit: string): number => {
-    const unit = toUnit.toLowerCase();
-    switch (unit) {
-      case 'ml': return ml;
-      case 'l': return ml / 1000;
-      case '큰술':
-      case '스푼': return ml / 15;
-      case '작은술':
-      case '티스푼': return ml / 5;
-      case '컵': return ml / 240;
-      default: return ml; // 변환 불가능한 단위는 그대로
-    }
-  };
-  
-  // 단위를 g 기준으로 변환 (무게 단위)
-  const convertToG = (quantity: number, fromUnit: string): number => {
-    const unit = fromUnit.toLowerCase();
-    switch (unit) {
-      case 'g': return quantity;
-      case 'kg': return quantity * 1000;
-      default: return quantity; // 변환 불가능한 단위는 그대로
-    }
-  };
-  
-  // g를 다른 단위로 변환
-  const convertFromG = (g: number, toUnit: string): number => {
-    const unit = toUnit.toLowerCase();
-    switch (unit) {
-      case 'g': return g;
-      case 'kg': return g / 1000;
-      default: return g; // 변환 불가능한 단위는 그대로
-    }
-  };
-  
-  // 단위 변환 함수 (부피↔부피, 무게↔무게만 변환 가능)
-  const convertUnit = (quantity: number, fromUnit: string, toUnit: string): number => {
-    const from = fromUnit.toLowerCase();
-    const to = toUnit.toLowerCase();
-    
-    // 같은 단위면 그대로
-    if (from === to) return quantity;
-    
-    // 부피 단위들 (스푼=큰술, 티스푼=작은술 포함)
-    const volumeUnits = ['ml', 'l', '큰술', '스푼', '작은술', '티스푼', '컵'];
-    const isFromVolume = volumeUnits.includes(from);
-    const isToVolume = volumeUnits.includes(to);
-    
-    // 스푼 → 큰술, 티스푼 → 작은술로 정규화
-    const normalizedFrom = from === '스푼' ? '큰술' : from === '티스푼' ? '작은술' : from;
-    const normalizedTo = to === '스푼' ? '큰술' : to === '티스푼' ? '작은술' : to;
-    
-    // 무게 단위들
-    const weightUnits = ['g', 'kg'];
-    const isFromWeight = weightUnits.includes(from);
-    const isToWeight = weightUnits.includes(to);
-    
-    // 부피 → 부피 변환
-    if (isFromVolume && isToVolume) {
-      const ml = convertToML(quantity, normalizedFrom);
-      return convertFromML(ml, normalizedTo);
-    }
-    
-    // 무게 → 무게 변환
-    if (isFromWeight && isToWeight) {
-      const g = convertToG(quantity, fromUnit);
-      return convertFromG(g, toUnit);
-    }
-    
-    // 변환 불가능한 경우 (부피↔무게, 개수 단위 등)는 그대로 반환
-    return quantity;
   };
   
   // Weighted Average 방식으로 원가 계산
@@ -633,151 +738,13 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
           pinnedCommentLength: info.pinnedComment?.length || 0,
         });
         
-        // 테스트용: 유튜브 원본 내용 저장
         const rawContent = [
           `제목: ${info.title || '없음'}`,
           `설명: ${info.description || '없음'}`,
           `고정댓글: ${info.pinnedComment || '없음'}`
         ].join('\n\n');
         setYoutubeRawContent(rawContent);
-        console.log('테스트용 원본 내용 저장 완료, 길이:', rawContent.length);
-        
-        // 2단계: AI로 레시피 이름 추출하기
-        console.log('=== 2단계: AI로 레시피 이름 추출 시작 ===');
-        let extractedRecipeName = '';
-        
-        // 제목, 설명, 고정 댓글을 순서대로 합치기 (제목/댓글/내용)
-        const allContent = [
-          info.title,
-          info.pinnedComment,
-          info.description
-        ].filter(Boolean).join('\n\n');
-        
-        console.log('이름 추출을 위한 전체 내용 길이:', allContent.length);
-        console.log('이름 추출을 위한 전체 내용 (처음 200자):', allContent.substring(0, 200));
-        
-        if (allContent.trim()) {
-          // Gemini API를 사용하여 이름 추출 (제목, 댓글, 내용 모두 포함)
-          const result = await cleanRecipeTextWithGemini(allContent);
-          
-          console.log('Gemini API 응답:', {
-            name: result.name,
-            cleanedTextLength: result.cleanedText.length
-          });
-          
-          if (result.name && result.name.trim()) {
-            extractedRecipeName = result.name.trim();
-            console.log('추출된 레시피 이름:', extractedRecipeName);
-          } else {
-            console.log('⚠️ 레시피 이름 추출 실패 - 빈 값');
-          }
-        } else {
-          console.log('⚠️ 이름 추출을 위한 내용이 없음');
-        }
-        
-        // 3단계: 레시피 이름 란에 기입하기
-        console.log('=== 3단계: 레시피 이름 란에 기입 ===');
-        if (extractedRecipeName) {
-          setName(extractedRecipeName);
-          nameExtractedRef.current = true;
-          console.log('✅ 레시피 이름 설정 완료:', extractedRecipeName);
-        } else {
-          console.log('⚠️ 레시피 이름이 없어서 설정하지 않음');
-        }
-        
-        // 4단계: 레시피 정보와 조리방법 자동 추출
-        console.log('=== 4단계: 레시피 정보와 조리방법 추출 시작 ===');
-        console.log('info 객체:', {
-          hasTitle: !!info.title,
-          hasDescription: !!info.description,
-          hasPinnedComment: !!info.pinnedComment,
-          titleValue: info.title,
-          descriptionValue: info.description?.substring(0, 100),
-          pinnedCommentValue: info.pinnedComment?.substring(0, 100),
-        });
-        
-        const allContentForRecipe = [
-          info.title,
-          info.pinnedComment,
-          info.description
-        ].filter(Boolean).join('\n\n');
-        
-        console.log('재료/조리방법 추출을 위한 전체 내용:');
-        console.log('- 필터링 전 배열:', [info.title, info.pinnedComment, info.description]);
-        console.log('- 필터링 후 배열:', [info.title, info.pinnedComment, info.description].filter(Boolean));
-        console.log('- 전체 내용 길이:', allContentForRecipe.length);
-        console.log('- 전체 내용 (처음 500자):', allContentForRecipe.substring(0, 500));
-        console.log('- 전체 내용 (전체):', allContentForRecipe);
-        
-        if (allContentForRecipe.trim()) {
-          try {
-            // Gemini API로 정제하여 재료와 단계 추출
-            console.log('Gemini API 호출 시작 (재료/조리방법 추출용)...');
-            const recipeResult = await cleanRecipeTextWithGemini(allContentForRecipe);
-            
-            console.log('Gemini API 응답 (재료/조리방법):', {
-              hasCleanedText: !!recipeResult.cleanedText,
-              cleanedTextLength: recipeResult.cleanedText?.length || 0,
-              cleanedTextPreview: recipeResult.cleanedText?.substring(0, 500) || '없음',
-              fullCleanedText: recipeResult.cleanedText || '없음'
-            });
-            
-            // 정제된 텍스트로 재료와 단계 추출
-            if (recipeResult.cleanedText && recipeResult.cleanedText.trim()) {
-              console.log('정제된 텍스트 파싱 시작...');
-              console.log('파싱할 전체 텍스트:', recipeResult.cleanedText);
-              const { ingredients, steps } = parseRecipeFromText(recipeResult.cleanedText);
-              
-              console.log('파싱 결과:', {
-                ingredientsCount: ingredients.length,
-                stepsCount: steps.length,
-                ingredients: ingredients.map(ing => `${ing.name} ${ing.quantity}${ing.unit}`),
-                steps: steps.map(step => `${step.order}. ${step.description}`)
-              });
-              
-              // 재료에 카테고리 자동 설정
-              const ingredientsWithCategory = ingredients.map(ing => ({
-                ...ing,
-                category: ing.category || getIngredientCategory(ing.name)
-              }));
-              
-              console.log('상태 업데이트 전:', {
-                currentIngredients: extractedIngredients.length,
-                currentSteps: extractedSteps.length
-              });
-              
-              setExtractedIngredients(ingredientsWithCategory);
-              setExtractedSteps(steps);
-              
-              console.log('✅ 레시피 정보 추출 완료 및 상태 업데이트:', {
-                ingredients: ingredientsWithCategory.length,
-                steps: steps.length
-              });
-              
-              // 상태 업데이트 확인을 위한 추가 로그
-              setTimeout(() => {
-                console.log('상태 업데이트 확인 (1초 후):', {
-                  ingredients: extractedIngredients.length,
-                  steps: extractedSteps.length
-                });
-              }, 1000);
-            } else {
-              console.warn('⚠️ 정제된 텍스트가 비어있음');
-              console.warn('원본 텍스트:', allContentForRecipe.substring(0, 500));
-            }
-          } catch (error) {
-            console.error('❌ 재료/조리방법 추출 중 오류:', error);
-            console.error('에러 상세:', error instanceof Error ? error.stack : error);
-          }
-        } else {
-          console.warn('⚠️ 재료/조리방법 추출을 위한 내용이 없음');
-        }
-        
-        // 유튜브 영상 제목을 설명에 설정
-        if (info.title) {
-          setDescription(info.title);
-          console.log('✅ 설명 설정:', info.title);
-        }
+        if (info.title) setDescription(info.title);
       } catch (error) {
         console.error('정보 가져오기 실패:', error);
       } finally {
@@ -791,6 +758,52 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
     return () => clearTimeout(timer);
   }, [youtubeUrl]);
 
+  // 레시피 텍스트가 바뀌면(유튜브 로드 또는 직접 입력) 디바운스 후 자동 추출
+  useEffect(() => {
+    const raw = youtubeRawContent.trim();
+    if (raw.length < 30) return;
+
+    const timer = setTimeout(async () => {
+      setIsLoadingRecipe(true);
+      try {
+        const result = await cleanRecipeTextWithGemini(raw);
+        if (result.name && result.name.trim()) {
+          setName(result.name.trim());
+          nameExtractedRef.current = true;
+        }
+        if (result.color) setColor(result.color);
+
+        let ingredients: Ingredient[] = [];
+        let steps: RecipeStep[] = [];
+        if (result.recipe && result.recipe.trim()) {
+          const recipeParseResult = parseRecipeFromText(`[레시피]\n${result.recipe}`);
+          ingredients = recipeParseResult.ingredients;
+        }
+        if (result.method && result.method.trim()) {
+          const methodParseResult = parseRecipeFromText(`[조리방법]\n${result.method}`);
+          steps = methodParseResult.steps;
+        }
+        if (ingredients.length === 0 && steps.length === 0 && result.cleanedText?.trim()) {
+          const fallback = parseRecipeFromText(result.cleanedText);
+          ingredients = fallback.ingredients;
+          steps = fallback.steps;
+        }
+        if (ingredients.length > 0 || steps.length > 0) {
+          const withCategory = ingredients.map((ing) => ({
+            ...ing,
+            category: ing.category || getIngredientCategory(ing.name),
+          }));
+          setExtractedIngredients(withCategory);
+          setExtractedSteps(steps);
+        }
+      } catch (err) {
+        console.error('레시피 텍스트 자동 추출 오류:', err);
+      } finally {
+        setIsLoadingRecipe(false);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [youtubeRawContent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -799,11 +812,15 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
     const newRecipe: Recipe = {
       id: isEditMode ? initialRecipe!.id : Date.now().toString(),
       name,
-      description,
+      description: '', // 설명칸 제거로 항상 빈 문자열
       category,
+      color: color && /^#[0-9A-Fa-f]{6}$/.test(color) ? color : undefined,
       targetServings: 1,
       baseServings: typeof baseServings === 'number' ? baseServings : 1,
-      ingredients: extractedIngredients,
+      ingredients: extractedIngredients.map(ing => ({
+        ...ing,
+        quantity: ing.quantity ?? 0
+      })),
       steps: extractedSteps,
       images: initialRecipe?.images || [],
       videos: youtubeUrl ? [youtubeUrl] : [],
@@ -813,25 +830,18 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
       history: initialRecipe?.history || [],
     };
 
-    // 재료 가격에 없는 재료 자동 추가
-    for (const ingredient of extractedIngredients) {
-      const key = `${ingredient.name}_${ingredient.unit}`;
-      if (!ingredientPrices.has(key)) {
-        // 재료 가격에 없는 경우 기본값(0)으로 추가
-        await updateIngredientPrice(ingredient.name, ingredient.unit, ingredient.costPerUnit || 0);
-      }
-    }
-
     onAdd(newRecipe);
   };
 
+  if (!isOpen) return null;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-[calc(80px+env(safe-area-inset-bottom,0px))] bg-black bg-opacity-50"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 overflow-y-auto flex-1 min-h-0">
@@ -898,39 +908,38 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
                   })}
                 </div>
               </div>
-            </div>
-
-            {/* 유튜브 링크 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                유튜브 링크
-              </label>
-              <input
-                type="url"
-                value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
-                placeholder="https://www.youtube.com/watch?v=..."
-              />
-              {isLoadingTitle && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {isLoadingRecipe ? '레시피 정보 가져오는 중...' : '제목 가져오는 중...'}
-                </p>
-              )}
-            </div>
-
-            {/* 설명 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                설명
-              </label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
-                placeholder="레시피 설명을 한 줄로 입력하세요"
-              />
+              {/* 요리 색 (메뉴/도시락 색조합 표시용) */}
+              <div className="mt-2 flex items-center gap-3">
+                <span className="text-sm text-gray-600 whitespace-nowrap">요리 색</span>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { name: '빨강', hex: '#FFB3BA' }, // 고추장, 고춧가루
+                    { name: '주황', hex: '#FFDFBA' }, // 당근, 호박
+                    { name: '노랑', hex: '#FFFFBA' }, // 계란, 옥수수
+                    { name: '초록', hex: '#BAFFC9' }, // 시금치, 쑥
+                    { name: '갈색', hex: '#D4A574' }, // 된장, 간장
+                    { name: '보라', hex: '#E6CCFF' }, // 가지
+                    { name: '흰색', hex: '#FFFFFF' }, // 밥, 두부
+                    { name: '검정', hex: '#D3D3D3' }, // 검은깨
+                  ].map((colorOption) => (
+                    <button
+                      key={colorOption.hex}
+                      type="button"
+                      onClick={() => setColor(color === colorOption.hex ? undefined : colorOption.hex)}
+                      className={`w-8 h-8 rounded-lg transition-all ${
+                        color === colorOption.hex
+                          ? 'ring-2 ring-[#4D99CC] ring-offset-1 scale-110'
+                          : 'hover:scale-105'
+                      }`}
+                      style={{ 
+                        backgroundColor: colorOption.hex,
+                        border: colorOption.hex === '#FFFFFF' ? '1px solid #E5E7EB' : 'none'
+                      }}
+                      title={colorOption.name}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* 레시피 정보 */}
@@ -939,60 +948,24 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
                 <label className="block text-sm font-medium text-gray-700">
                   레시피 정보
                 </label>
-                <div className="flex items-center gap-4">
-                  {extractedIngredients.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-700">총 원가:</span>
-                      <span className="text-lg font-bold text-[#4D99CC]">
-                        ${(totalCost / 1000).toFixed(2)}
-                      </span>
-                      <span className="text-xs text-gray-500 font-normal">
-                        /1인분
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      value={baseServings}
-                      onChange={(e) => setBaseServings(e.target.value === '' ? '' : Number(e.target.value))}
-                      required
-                      min={1}
-                      className="w-12 px-2 py-1 text-center border-2 border-[#4D99CC] bg-blue-50 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC] text-sm"
-                      placeholder=""
-                    />
-                    <span className="text-sm text-gray-700">인분 기준</span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">이 요리를</span>
+                  <input
+                    type="number"
+                    value={baseServings}
+                    onChange={(e) => setBaseServings(e.target.value === '' ? '' : Number(e.target.value))}
+                    required
+                    min={1}
+                    className="w-12 px-2 py-1 text-center border-2 border-[#4D99CC] bg-blue-50 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC] text-sm appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                    placeholder=""
+                  />
+                  <span className="text-sm text-gray-700">인분으로 설정합니다.</span>
                 </div>
               </div>
               {extractedIngredients.length > 0 ? (
                 <>
                   <div className="flex flex-col gap-3 mb-3">
                     {extractedIngredients
-                      .slice()
-                      .sort((a, b) => {
-                        // 카테고리별 정렬 순서: 육류 -> 채소 -> 조미료 -> 기타
-                        const categoryOrder: Record<IngredientCategory, number> = {
-                          '육류': 1,
-                          '채소': 2,
-                          '조미료': 3,
-                          '곡물': 4,
-                          '기타': 5
-                        };
-                        
-                        const categoryA = a.category || getIngredientCategory(a.name);
-                        const categoryB = b.category || getIngredientCategory(b.name);
-                        
-                        const orderA = categoryOrder[categoryA] || 5;
-                        const orderB = categoryOrder[categoryB] || 5;
-                        
-                        if (orderA !== orderB) {
-                          return orderA - orderB;
-                        }
-                        
-                        // 같은 카테고리 내에서는 이름순 정렬
-                        return a.name.localeCompare(b.name, 'ko');
-                      })
                       .map((ing) => {
                       // 재고에서 재료명과 단위로 매칭하여 원가 가져오기
                       const inventoryItem = inventory.find(
@@ -1009,64 +982,92 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
                       return (
                         <div
                           key={ing.id}
-                          className="bg-gray-100 rounded-lg p-3 flex items-center gap-2"
+                          className="bg-gray-100 rounded-lg p-3 flex items-center gap-2 min-w-0"
                         >
-                          {/* 카테고리 뱃지 (재료 탭과 동일한 스타일) */}
-                          <span 
-                            className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${getCategoryColor(category)}`}
-                          >
-                            {category}
-                          </span>
+                          {/* 카테고리 뱃지 (재료 탭과 동일한 스타일) - 클릭 가능, 고정 크기 */}
+                          <div className="relative flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                try {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setEditingCategoryId(editingCategoryId === ing.id ? null : ing.id);
+                                } catch (error) {
+                                  console.error('카테고리 편집 시작 오류:', error);
+                                }
+                              }}
+                              className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${getCategoryColor(category)}`}
+                            >
+                              {category}
+                            </button>
+                            {editingCategoryId === ing.id && (
+                              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[80px]">
+                                {(['육류', '채소', '조미료', '곡물', '기타'] as IngredientCategory[]).map((cat) => (
+                                  <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={(e) => {
+                                      try {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const updatedIngredients = extractedIngredients.map((i) =>
+                                          i.id === ing.id
+                                            ? { ...i, category: cat }
+                                            : i
+                                        );
+                                        setExtractedIngredients(updatedIngredients);
+                                        setEditingCategoryId(null);
+                                      } catch (error) {
+                                        console.error('카테고리 변경 오류:', error);
+                                        setEditingCategoryId(null);
+                                      }
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg ${
+                                      category === cat ? 'bg-blue-50 text-[#4D99CC]' : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {cat}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {/* 재료명 입력 - 반응형, 최소 너비 설정 */}
                           <input
                             type="text"
                             value={ing.name}
                             onChange={(e) => {
-                              const updatedIngredients = extractedIngredients.map((i) =>
-                                i.id === ing.id
-                                  ? { ...i, name: e.target.value }
-                                  : i
-                              );
+                              const newName = e.target.value;
+                              const updatedIngredients = extractedIngredients.map((i) => {
+                                if (i.id === ing.id) {
+                                  // 재료명이 변경되면 자동으로 적절한 단위 설정
+                                  return { ...i, name: newName, unit: DEFAULT_UNIT };
+                                }
+                                return i;
+                              });
                               setExtractedIngredients(updatedIngredients);
                             }}
-                            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
+                            className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
                             placeholder="재료명"
                           />
+                          {/* 수량 입력 - 반응형, 최소/최대 너비 설정, 스피너 제거 */}
                           <input
                             type="number"
-                            value={ing.quantity}
+                            value={ing.quantity ?? ''}
                             onChange={(e) => {
                               const updatedIngredients = extractedIngredients.map((i) =>
                                 i.id === ing.id
-                                  ? { ...i, quantity: parseFloat(e.target.value) || 0 }
+                                  ? { ...i, quantity: e.target.value === '' ? undefined : (parseFloat(e.target.value) || 0) }
                                   : i
                               );
                               setExtractedIngredients(updatedIngredients);
                             }}
-                            className="w-20 px-2 py-1.5 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC] text-sm flex-shrink-0"
+                            className="w-16 sm:w-20 px-2 py-1.5 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC] text-sm flex-shrink-0 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                             min="0"
                             step="0.1"
                           />
-                          <select
-                            value={ing.unit}
-                            onChange={(e) => {
-                              const newUnit = e.target.value;
-                              // 단위 변경 시 자동 변환
-                              const convertedQuantity = convertUnit(ing.quantity, ing.unit, newUnit);
-                              const updatedIngredients = extractedIngredients.map((i) =>
-                                i.id === ing.id
-                                  ? { ...i, unit: newUnit, quantity: convertedQuantity }
-                                  : i
-                              );
-                              setExtractedIngredients(updatedIngredients);
-                            }}
-                            className="text-xs px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#4D99CC] bg-white w-16 flex-shrink-0"
-                          >
-                            {unitOptions.map((unit) => (
-                              <option key={unit} value={unit}>
-                                {unit}
-                              </option>
-                            ))}
-                          </select>
+                          <span className="text-sm text-gray-600 flex-shrink-0 w-6">g</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -1100,7 +1101,7 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
                         id: `ingredient-${Date.now()}`,
                         name: '',
                         quantity: 1,
-                        unit: 'g',
+                        unit: 'g', // 재료명이 입력되면 자동으로 변경됨
                         costPerUnit: 0,
                         category: '기타',
                       };
@@ -1126,7 +1127,6 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
                 </>
               ) : (
                 <div>
-                  <p className="text-sm text-gray-500 mb-3">유튜브 링크를 입력하면 자동으로 재료가 추출됩니다.</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -1134,7 +1134,7 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
                         id: `ingredient-${Date.now()}`,
                         name: '',
                         quantity: 1,
-                        unit: 'g',
+                        unit: 'g', // 재료명이 입력되면 자동으로 변경됨
                         costPerUnit: 0,
                         category: '기타',
                       };
@@ -1310,18 +1310,37 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
               </div>
             </div>
 
-            {/* 유튜브 원본 내용 */}
+            {/* 유튜브 링크 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                유튜브 링크
+              </label>
+              <input
+                type="url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+              {isLoadingTitle && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {isLoadingRecipe ? '레시피 정보 가져오는 중...' : '제목 가져오는 중...'}
+                </p>
+              )}
+            </div>
+
+            {/* 레시피 텍스트 - 입력하면 위 항목 자동 채움 */}
             <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
               <label className="block text-sm font-bold text-gray-800 mb-2">
-                📺 유튜브 원본 내용
+                레시피 텍스트
               </label>
               <div className="bg-white p-3 rounded border border-blue-200">
                 <textarea
-                  value={youtubeRawContent || '유튜브 링크를 입력하면 여기에 원본 내용이 표시됩니다...'}
-                  readOnly
-                  rows={15}
+                  value={youtubeRawContent}
+                  onChange={(e) => setYoutubeRawContent(e.target.value)}
+                  rows={11}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white font-mono text-xs"
-                  placeholder="유튜브 링크를 입력하면 여기에 원본 내용이 표시됩니다..."
+                  placeholder="유튜브 링크 입력 시 자동 채워지거나, 여기에 레시피 원문을 붙여넣으면 이름·재료·조리방법이 자동으로 채워집니다."
                 />
               </div>
               <div className="mt-2 flex gap-4 text-xs text-gray-600">
@@ -1332,6 +1351,35 @@ export default function AddRecipeModal({ onClose, onAdd, initialRecipe }: AddRec
 
           </form>
         </div>
+        
+        {/* 제미나이 플로팅 버튼 */}
+        <button
+          type="button"
+          onClick={() => setIsGeminiChatOpen(true)}
+          className="absolute right-6 w-14 h-14 bg-white rounded-full hover:scale-110 transition-all flex items-center justify-center z-10"
+          style={{ 
+            bottom: '69px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)'
+          }}
+          title="제미나이와 대화하기"
+        >
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* AI 챗봇 아이콘 - 말풍선 형태 */}
+            <path 
+              d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" 
+              fill="#4285F4"
+            />
+            <circle cx="9" cy="9" r="1" fill="#FFFFFF"/>
+            <circle cx="12" cy="9" r="1" fill="#FFFFFF"/>
+            <circle cx="15" cy="9" r="1" fill="#FFFFFF"/>
+          </svg>
+        </button>
+
+        {/* 제미나이 채팅 모달 */}
+        <GeminiChatModal
+          isOpen={isGeminiChatOpen}
+          onClose={() => setIsGeminiChatOpen(false)}
+        />
         
         {/* 등록 버튼 - 모달 하단에 고정 */}
         <div className="bg-white border-t border-gray-200 p-3 rounded-b-2xl flex-shrink-0">

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/app-store';
 import { DailyMenu } from '@/types/daily-menu';
+import { getRecipeCategoryColor } from '@/types/recipe';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -143,17 +144,22 @@ export default function TodayMenuView({
                       }`}
                     >
                       <div className="flex flex-col items-center h-full">
-                        <div className="flex-1">
+                        <div className="flex-1 w-full">
                           {menu && menu.recipes && menu.recipes.length > 0 ? (
                             <div className="space-y-1">
                               {menu.recipes.map((recipe) => (
                                 <div
                                   key={recipe.id}
-                                  className="text-xs text-gray-800"
+                                  className="text-xs text-gray-800 px-1 py-0.5 rounded bg-gray-50"
                                 >
                                   {recipe.name}
                                 </div>
                               ))}
+                              {menu.servings && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {menu.servings}개
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="text-xs text-gray-400">없음</div>
@@ -473,11 +479,21 @@ export default function TodayMenuView({
           {dailyMenu.recipes.map((recipe) => (
             <div
               key={recipe.id}
-              className="px-6 py-4 bg-gray-50 rounded-xl border border-gray-200"
+              className="px-6 py-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-3"
             >
-              <p className="text-lg font-semibold" style={{ color: '#1A1A1A' }}>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${getRecipeCategoryColor(recipe.category)}`}>
+                {recipe.category}
+              </span>
+              <p className="text-lg font-semibold flex-1 min-w-0" style={{ color: '#1A1A1A' }}>
                 {recipe.name}
               </p>
+              {recipe.color && (
+                <span
+                  className="w-6 h-6 rounded-full flex-shrink-0 border border-gray-300"
+                  style={{ backgroundColor: recipe.color }}
+                  title="요리 색"
+                />
+              )}
             </div>
           ))}
         </div>
@@ -488,13 +504,14 @@ export default function TodayMenuView({
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{
-            bottom: `calc(var(--safari-address-bar-height, 44px) + 70px + 13px + var(--safe-area-inset-bottom))`
+            bottom: `calc(70px + 25px + env(safe-area-inset-bottom, 0px))`
           }}
         >
           <div className="max-w-4xl mx-auto">
             <button
               onClick={onStartCooking}
-              className="w-full py-5 bg-[#4D99CC] text-white rounded-xl font-semibold text-lg hover:bg-[#3d89bc] transition-colors shadow-lg"
+              className="w-full bg-[#4D99CC] text-white rounded-xl font-semibold text-lg hover:bg-[#3d89bc] transition-colors shadow-lg"
+              style={{ paddingTop: '1.375rem', paddingBottom: '1.375rem' }}
             >
               요리 시작
             </button>

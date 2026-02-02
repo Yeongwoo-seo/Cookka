@@ -33,19 +33,11 @@ export function calculateMenuProfitMargin(menu: MenuPerformance): number {
   return (calculateMenuProfit(menu) / menu.revenue) * 100;
 }
 
+// 목업 데이터 제거됨 - Firebase에서 실제 데이터 사용
 export const sampleBusinessMetrics: BusinessMetrics = {
-  todayRevenue: 500000,
-  todayCost: 300000,
-  menuPerformance: [
-    {
-      id: '1',
-      menuName: '김치볶음밥',
-      quantity: 50,
-      revenue: 250000,
-      cost: 150000,
-      averageCookingTime: 30 * 60, // 30 minutes
-    },
-  ],
-  productionCount: 50,
+  todayRevenue: 0,
+  todayCost: 0,
+  menuPerformance: [],
+  productionCount: 0,
   lastUpdated: new Date(),
 };

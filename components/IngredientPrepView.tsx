@@ -12,6 +12,17 @@ interface IngredientPrepViewProps {
   showButton?: boolean;
 }
 
+/** 숫자 포맷팅: .0이면 정수로 표시, 천 단위 구분자 추가 */
+function formatNumber(num: number, decimals: number = 1): string {
+  const fixed = num.toFixed(decimals);
+  const numValue = parseFloat(fixed);
+  const baseValue = numValue % 1 === 0 ? numValue.toString() : fixed;
+  // 천 단위 구분자 추가
+  const parts = baseValue.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
 export default function IngredientPrepView({
   dailyMenu,
   preparedIngredients,
@@ -130,7 +141,7 @@ export default function IngredientPrepView({
                       }`}
                     >
                       {ingredient.name}{' '}
-                      {ingredient.quantity.toFixed(1)} {ingredient.unit}
+                      {formatNumber(ingredient.quantity, 1)} {ingredient.unit}
                     </span>
                   </label>
                 );
@@ -163,7 +174,7 @@ export default function IngredientPrepView({
                       }`}
                     >
                       {ingredient.name}{' '}
-                      {ingredient.quantity.toFixed(1)} {ingredient.unit}
+                      {formatNumber(ingredient.quantity, 1)} {ingredient.unit}
                     </span>
                   </label>
                 );

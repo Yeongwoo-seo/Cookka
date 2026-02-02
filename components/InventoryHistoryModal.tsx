@@ -11,6 +11,17 @@ interface InventoryHistoryModalProps {
   item: InventoryItem | null;
 }
 
+/** 숫자 포맷팅: .0이면 정수로 표시, 천 단위 구분자 추가 */
+function formatNumber(num: number, decimals: number = 1): string {
+  const fixed = num.toFixed(decimals);
+  const numValue = parseFloat(fixed);
+  const baseValue = numValue % 1 === 0 ? numValue.toString() : fixed;
+  // 천 단위 구분자 추가
+  const parts = baseValue.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
 export default function InventoryHistoryModal({
   isOpen,
   onClose,
@@ -69,13 +80,13 @@ export default function InventoryHistoryModal({
               <div>
                 <p className="text-sm text-gray-600 mb-1">평균 원가</p>
                 <p className="text-lg font-semibold">
-                  ${((item.costPerUnit || 0) / 1000).toFixed(2)}/{item.unit}
+                  ${formatNumber(item.costPerUnit || 0, 2)}/kg
                 </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600 mb-1">총 가치</p>
                 <p className="text-lg font-semibold text-blue-600">
-                  ${((item.currentStock * (item.costPerUnit || 0)) / 1000).toFixed(2)}
+                  ${formatNumber((item.currentStock * (item.costPerUnit || 0)) / 1000, 2)}
                 </p>
               </div>
             </div>
@@ -120,10 +131,10 @@ export default function InventoryHistoryModal({
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900">
-                        ${((history.costPerUnit || 0) / 1000).toFixed(2)}/{item.unit}
+                        ${formatNumber(history.costPerUnit || 0, 2)}/kg
                       </p>
                       <p className="text-sm text-gray-500">
-                        총 ${((history.quantity * (history.costPerUnit || 0)) / 1000).toFixed(2)}
+                        총 ${formatNumber((history.quantity * (history.costPerUnit || 0)) / 1000, 2)}
                       </p>
                     </div>
                   </div>

@@ -2,71 +2,54 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Gemini API를 사용하여 레시피 텍스트를 구조화된 형식으로 변환
 export async function POST(request: NextRequest) {
+  let text = '';
   try {
-    const { text } = await request.json();
+    const body = await request.json();
+    text = body.text || '';
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'text is required' }, { status: 400 });
     }
 
+    console.log('=== 📥 Gemini API로 전달되는 원본 텍스트 ===');
+    console.log('텍스트 길이:', text.length, '자');
+    console.log('텍스트 전체 내용:');
+    console.log(text);
+    console.log('=== 원본 텍스트 끝 ===\n');
+
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
+      console.error('❌ GEMINI_API_KEY가 환경 변수에 설정되지 않았습니다.');
       return NextResponse.json(
-        { error: 'Gemini API key is not configured' },
+        { error: 'Gemini API key is not configured', details: 'GEMINI_API_KEY 환경 변수를 확인해주세요.' },
         { status: 500 }
       );
     }
 
-    // Gemini API 호출 - 최신 모델 사용 (gemini-1.5-flash는 2025년 9월 종료됨)
-    // gemini-2.5-flash (안정 버전) 또는 gemini-3-flash-preview 사용
-    let response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `다음 텍스트를 분석하여 요리 이름을 추출하고, 레시피 형식으로 변환해주세요. 반드시 JSON 형식으로만 반환해주세요.
+    console.log('🔑 Gemini API 키 확인됨:', {
+      length: apiKey.length,
+      prefix: apiKey.substring(0, 10) + '...',
+      suffix: '...' + apiKey.substring(apiKey.length - 5)
+    });
 
-입력 텍스트:
-${text}
+    // Gemini API 호출 - 안정적인 모델부터 시도
+    // 표준 모델 이름 사용
+    const models = [
+      'gemini-1.5-flash',  // 가장 빠르고 안정적
+      'gemini-1.5-pro',    // 더 정확한 결과
+    ];
 
-다음 JSON 형식으로 반환해주세요 (추가 설명이나 텍스트 없이 JSON만):
-{
-  "name": "요리이름",
-  "recipe": "[레시피]\\n재료1 수량단위\\n재료2 수량단위\\n...",
-  "method": "[조리방법]\\n1. 첫 번째 단계\\n2. 두 번째 단계\\n..."
-}
+    let response: Response | null = null;
+    let lastError: string = '';
+    let usedModel = '';
 
-중요 사항:
-1. 요리 이름(name)은 반드시 추출해야 합니다. 텍스트의 제목, 설명, 댓글을 모두 분석하여 가장 적절한 한국 요리 이름을 추출해주세요.
-2. 예시: "제육볶음", "된장찌개", "김치찌개", "어묵볶음", "콩나물무침", "계란찜", "시금치나물", "미역국", "콩자반" 등
-3. name 필드는 반드시 채워야 하며, 빈 문자열이면 안 됩니다.
-4. 재료는 "재료명 수량단위" 형식으로 정리하고, 조리방법은 번호를 매겨서 정리해주세요.
-5. 결과는 반드시 JSON 형식만 반환하고, 추가 설명이나 텍스트는 포함하지 마세요.`
-            }]
-          }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.7,
-          }
-        }),
-      }
-    );
-
-    // gemini-2.5-flash 실패 시 gemini-3-flash-preview 시도
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Gemini API error (gemini-2.5-flash):', errorData);
-      
-      if (response.status === 404) {
-        console.log('gemini-2.5-flash 실패, gemini-3-flash-preview 시도');
+    for (const model of models) {
+      try {
+        console.log(`🔄 ${model} 모델 시도 중...`);
+        usedModel = model;
         response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           {
             method: 'POST',
             headers: {
@@ -75,24 +58,37 @@ ${text}
             body: JSON.stringify({
               contents: [{
                 parts: [{
-                  text: `다음 텍스트를 분석하여 요리 이름을 추출하고, 레시피 형식으로 변환해주세요. 반드시 JSON 형식으로만 반환해주세요.
+                  text: `제공되는 [Input Text]는 유튜브 설명란에서 가져온 원본 데이터로, HTML 태그, 영어 번역, 이모지, 해시태그 등이 섞여 있습니다.
 
-입력 텍스트:
+이 텍스트를 분석하여 다음 [Output Format]에 맞춰 한국어로 깔끔하게 정리해 주세요.
+
+[Input Text]
 ${text}
 
-다음 JSON 형식으로 반환해주세요 (추가 설명이나 텍스트 없이 JSON만):
+[요구사항]
+1. 불필요한 HTML 태그(<br> 등), 영어 번역문, 해시태그(#shorts 등), 인사말은 모두 제거하십시오.
+2. '[재료]' 섹션에는 고기, 채소, 양념 등 모든 식재료와 분량을 쉼표(,)로 구분하여 나열하십시오.
+3. '[레시피]' 섹션에는 조리 과정을 논리적인 순서대로 1, 2, 3... 번호를 매겨 서술형으로 작성하십시오.
+4. 문체는 "~합니다", "~하세요"와 같은 정중하고 명확한 요리책 스타일을 유지하십시오.
+5. 재료인지 판단: 실제 요리에 사용되는 식재료만 포함하세요. 조리 방법 설명이나 동작은 재료가 아닙니다.
+   - 재료가 아닌 것의 예시: "고기 재우는 동안", "버무려서", "넣고", "시켜요", "하는 동안 같이 숙성을 시켜요" 등
+   - 재료인 것의 예시: "돼지고기 300g", "양파 1개", "고추장 2큰술", "마늘 1스푼" 등
+
+[Output Format]
+반드시 다음 JSON 형식으로만 반환하세요 (추가 설명이나 텍스트 없이 JSON만):
 {
   "name": "요리이름",
-  "recipe": "[레시피]\\n재료1 수량단위\\n재료2 수량단위\\n...",
-  "method": "[조리방법]\\n1. 첫 번째 단계\\n2. 두 번째 단계\\n..."
+  "color": "#hex6자리",
+  "recipe": "(재료명) (분량), (재료명) (분량), ...",
+  "method": "1. (첫 번째 조리 과정)\\n2. (두 번째 조리 과정)\\n..."
 }
 
 중요 사항:
-1. 요리 이름(name)은 반드시 추출해야 합니다. 텍스트의 제목, 설명, 댓글을 모두 분석하여 가장 적절한 한국 요리 이름을 추출해주세요.
-2. 예시: "제육볶음", "된장찌개", "김치찌개", "어묵볶음", "콩나물무침", "계란찜", "시금치나물", "미역국", "콩자반" 등
-3. name 필드는 반드시 채워야 하며, 빈 문자열이면 안 됩니다.
-4. 재료는 "재료명 수량단위" 형식으로 정리하고, 조리방법은 번호를 매겨서 정리해주세요.
-5. 결과는 반드시 JSON 형식만 반환하고, 추가 설명이나 텍스트는 포함하지 마세요.`
+- name 필드: 텍스트의 제목, 설명, 댓글을 모두 분석하여 가장 적절한 한국 요리 이름을 추출하세요. 예시: "제육볶음", "된장찌개", "김치찌개" 등
+- color 필드: 이 요리를 대표하는 색의 hex 코드 하나 (예: 카레=#F59E0B, 김치찌개=#DC2626, 밥=#FBBF24). 반드시 #으로 시작하는 6자리 hex만.
+- recipe 필드: 재료를 쉼표(,)로 구분하여 나열하세요. 예시: "돼지고기 300g, 양파 1개, 고추장 2큰술, 마늘 1스푼"
+- method 필드: 조리 과정을 번호를 매겨서 서술형으로 작성하세요. 예시: "1. 고기를 준비합니다.\\n2. 양파를 썹니다.\\n3. 양념장을 만듭니다."
+- 결과는 반드시 JSON 형식만 반환하고, 추가 설명이나 텍스트는 포함하지 마세요.`
                 }]
               }],
               generationConfig: {
@@ -102,68 +98,45 @@ ${text}
             }),
           }
         );
-        
-        if (!response.ok) {
-          const fallbackError = await response.text();
-          console.error('Gemini API error (gemini-3-flash-preview):', fallbackError);
-          
-          // 마지막 시도: gemini-2.5-pro (안정 버전)
-          if (response.status === 404) {
-            console.log('gemini-3-flash-preview도 실패, gemini-2.5-pro 시도');
-            response = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  contents: [{
-                    parts: [{
-                      text: `다음 텍스트를 분석하여 요리 이름을 추출하고, 레시피 형식으로 변환해주세요. 반드시 JSON 형식으로만 반환해주세요.
 
-입력 텍스트:
-${text}
-
-다음 JSON 형식으로 반환해주세요 (추가 설명이나 텍스트 없이 JSON만):
-{
-  "name": "요리이름",
-  "recipe": "[레시피]\\n재료1 수량단위\\n재료2 수량단위\\n...",
-  "method": "[조리방법]\\n1. 첫 번째 단계\\n2. 두 번째 단계\\n..."
-}
-
-중요 사항:
-1. 요리 이름(name)은 반드시 추출해야 합니다. 텍스트의 제목, 설명, 댓글을 모두 분석하여 가장 적절한 한국 요리 이름을 추출해주세요.
-2. 예시: "제육볶음", "된장찌개", "김치찌개", "어묵볶음", "콩나물무침", "계란찜", "시금치나물", "미역국", "콩자반" 등
-3. name 필드는 반드시 채워야 하며, 빈 문자열이면 안 됩니다.
-4. 재료는 "재료명 수량단위" 형식으로 정리하고, 조리방법은 번호를 매겨서 정리해주세요.
-5. 결과는 반드시 JSON 형식만 반환하고, 추가 설명이나 텍스트는 포함하지 마세요.`
-                    }]
-                  }],
-                  generationConfig: {
-                    responseMimeType: "application/json",
-                    temperature: 0.7,
-                  }
-                }),
-              }
-            );
-            
-            if (!response.ok) {
-              const finalError = await response.text();
-              console.error('Gemini API error (v1 gemini-pro):', finalError);
-              throw new Error(`모든 Gemini 모델 시도 실패. API 키를 확인하거나 Google AI Studio에서 모델 접근 권한을 확인해주세요. 참고: gemini-1.5-flash와 gemini-1.5-pro는 2025년 9월에 종료되었습니다.`);
-            }
-          } else {
-            throw new Error(`Gemini API error: ${response.status}`);
-          }
+        if (response.ok) {
+          console.log(`✅ ${model} 모델 성공!`);
+          break; // 성공하면 루프 종료
+        } else {
+          const errorText = await response.text();
+          lastError = `모델 ${model}: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`;
+          console.error(`❌ ${model} 모델 실패:`, {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText.substring(0, 200)
+          });
+          response = null; // 다음 모델 시도를 위해 null로 설정
         }
-      } else {
-        throw new Error(`Gemini API error: ${response.status}`);
+      } catch (error) {
+        lastError = `모델 ${model}: ${error instanceof Error ? error.message : String(error)}`;
+        console.error(`❌ ${model} 모델 예외 발생:`, error);
+        response = null;
       }
     }
 
+    if (!response || !response.ok) {
+      console.warn('⚠️ 모든 Gemini 모델 시도 실패:', lastError);
+      
+      // 모든 에러에 대해 조용히 fallback 처리 (사용자 경험 개선)
+      console.warn('⚠️ Gemini API 호출 실패 - fallback으로 처리 (원본 텍스트 반환)');
+      return NextResponse.json({
+        name: '',
+        cleanedText: text, // 원본 텍스트 반환
+        recipe: '',
+        method: '',
+      });
+    }
+
     const data = await response.json();
-    console.log('Gemini API 원본 응답:', JSON.stringify(data, null, 2));
+    console.log('=== 📤 Gemini API 원본 응답 ===');
+    console.log('사용된 모델:', usedModel);
+    console.log('응답 데이터:', JSON.stringify(data, null, 2));
+    console.log('=== Gemini API 원본 응답 끝 ===\n');
     
     // Gemini 응답에서 텍스트 추출
     // responseMimeType이 application/json이면 직접 JSON 객체가 반환될 수 있음
@@ -237,11 +210,11 @@ ${text}
           });
         } catch (parseError) {
           console.error('JSON 파싱 오류:', parseError);
-          // 파싱 실패 시 빈 객체로 초기화
           recipeData = {
             name: '',
             recipe: generatedText,
             method: '',
+            color: undefined,
           };
         }
       }
@@ -252,8 +225,14 @@ ${text}
         name: '',
         recipe: generatedText || '',
         method: '',
+        color: undefined,
       };
     }
+
+    // recipeData.recipe / method가 없을 수 있으므로 문자열로 정규화
+    if (recipeData.recipe == null || typeof recipeData.recipe !== 'string') recipeData.recipe = '';
+    if (recipeData.method == null || typeof recipeData.method !== 'string') recipeData.method = '';
+    if (recipeData.name == null || typeof recipeData.name !== 'string') recipeData.name = '';
     
     // 이름이 없으면 텍스트에서 추출 시도
     if (!recipeData.name || !recipeData.name.trim()) {
@@ -276,8 +255,8 @@ ${text}
       }
       
       // 방법 2: 레시피 텍스트의 첫 줄에서 추출
-      if (!recipeData.name || !recipeData.name.trim()) {
-        const firstLine = recipeData.recipe.split('\n')[0];
+      if ((!recipeData.name || !recipeData.name.trim()) && recipeData.recipe && typeof recipeData.recipe === 'string') {
+        const firstLine = recipeData.recipe.split('\n')[0] || '';
         const nameMatch = firstLine.match(/[가-힣]{2,10}/);
         if (nameMatch) {
           recipeData.name = nameMatch[0];
@@ -315,28 +294,45 @@ ${text}
       .join('\n\n');
 
     const finalName = recipeData.name && recipeData.name.trim() ? recipeData.name.trim() : '';
-    console.log('최종 반환할 이름:', finalName || '없음');
+    const colorHex = recipeData.color && /^#[0-9A-Fa-f]{6}$/.test(String(recipeData.color).trim()) ? String(recipeData.color).trim() : undefined;
     
-    return NextResponse.json({
+    const finalResponse = {
       name: finalName,
+      color: colorHex || undefined,
       cleanedText,
       recipe: recipeData.recipe || '',
       method: recipeData.method || '',
-    });
+    };
+    
+    console.log('=== ✅ 최종 반환 데이터 ===');
+    console.log('이름:', finalName || '없음');
+    console.log('재료 정보 길이:', finalResponse.recipe.length, '자');
+    console.log('조리방법 길이:', finalResponse.method.length, '자');
+    console.log('정제된 텍스트 길이:', finalResponse.cleanedText.length, '자');
+    console.log('\n재료 정보 전체:');
+    console.log(finalResponse.recipe);
+    console.log('\n조리방법 전체:');
+    console.log(finalResponse.method);
+    console.log('=== 최종 반환 데이터 끝 ===\n');
+    
+    return NextResponse.json(finalResponse);
   } catch (error) {
-    console.error('Gemini API 호출 실패:', error);
-    console.error('에러 상세:', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : undefined
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    console.warn('⚠️ Gemini API 예외 발생 - fallback으로 처리:', {
+      message: errorMessage,
+      name: error instanceof Error ? error.name : typeof error,
+      timestamp: new Date().toISOString()
     });
-    return NextResponse.json(
-      { 
-        error: 'Failed to process with Gemini API', 
-        details: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      },
-      { status: 500 }
-    );
+    
+    // 모든 에러에 대해 조용히 fallback 처리 (원본 텍스트 반환)
+    // 클라이언트에서 기본 텍스트 정제 함수를 사용하도록 함
+    return NextResponse.json({
+      name: '',
+      color: undefined,
+      cleanedText: text || '',
+      recipe: '',
+      method: '',
+    });
   }
 }

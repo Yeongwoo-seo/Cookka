@@ -130,7 +130,7 @@ export default function MenuCalendarView() {
                       <span className="font-medium">{format(day, 'd')}</span>
                       {hasMenu && (
                         <span className="text-xs mt-1">
-                          {dailyMenuHistory.get(dateKey)?.recipes.length || 0}개
+                          {dailyMenuHistory.get(dateKey)?.servings ?? 0}개
                         </span>
                       )}
                     </div>

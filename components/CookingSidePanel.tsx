@@ -95,22 +95,17 @@ export default function CookingSidePanel({
           )}
         </div>
 
-        {/* 하단 고정 버튼 (재료 준비일 때만) */}
+        {/* 하단 고정 버튼 - 재료 준비: 조리 시작 / 조리 완료: 조리 완료(닫기) - 조리시작과 같은 위치 */}
         {viewState === 'prep' && (() => {
-          // 모든 재료가 준비되었는지 확인
           const ingredientMap = new Map<string, string>();
           dailyMenu.recipes.forEach((recipe) => {
             recipe.ingredients.forEach((ing) => {
               const key = `${ing.name}_${ing.unit}`;
-              if (!ingredientMap.has(key)) {
-                ingredientMap.set(key, key);
-              }
+              if (!ingredientMap.has(key)) ingredientMap.set(key, key);
             });
           });
           const allIngredients = Array.from(ingredientMap.values());
-          const isAllPrepared = allIngredients.every((key) =>
-            preparedIngredients.has(key)
-          );
+          const isAllPrepared = allIngredients.every((key) => preparedIngredients.has(key));
 
           return (
             <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
@@ -128,6 +123,16 @@ export default function CookingSidePanel({
             </div>
           );
         })()}
+        {viewState === 'complete' && (
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+            <button
+              onClick={onClose}
+              className="w-full py-4 rounded-xl font-semibold text-lg transition-colors shadow-md bg-[#4D99CC] text-white hover:bg-[#3d89bc] cursor-pointer"
+            >
+              조리 완료
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

@@ -48,7 +48,9 @@ ${context}
 2. 한국 요리 이름으로 간단하고 명확하게 표현
 3. 예: "제육볶음", "된장찌개", "김치찌개", "콩나물무침", "어묵볶음" 등
 
-반드시 요리 이름 하나만 반환해주세요. 설명이나 추가 텍스트 없이 요리 이름만 답변해주세요.`
+반드시 두 줄만 반환하세요:
+1줄: 요리 이름만 (한글)
+2줄: 이 요리를 대표하는 색의 hex 코드 하나만 (예: 카레=#F59E0B, 김치찌개=#DC2626, 밥=#FBBF24). #으로 시작하는 6자리 hex만.`
             }]
           }],
           generationConfig: {
@@ -84,7 +86,7 @@ ${context}
 2. 한국 요리 이름으로 간단하고 명확하게 표현
 3. 예: "제육볶음", "된장찌개", "김치찌개", "콩나물무침", "어묵볶음" 등
 
-반드시 요리 이름 하나만 반환해주세요. 설명이나 추가 텍스트 없이 요리 이름만 답변해주세요.`
+반드시 두 줄만 반환하세요: 1줄=요리 이름(한글), 2줄=대표 색 hex (예: #F59E0B).`
                 }]
               }],
               generationConfig: {
@@ -120,7 +122,7 @@ ${context}
 2. 한국 요리 이름으로 간단하고 명확하게 표현
 3. 예: "제육볶음", "된장찌개", "김치찌개", "콩나물무침", "어묵볶음" 등
 
-반드시 요리 이름 하나만 반환해주세요. 설명이나 추가 텍스트 없이 요리 이름만 답변해주세요.`
+반드시 두 줄만: 1줄=요리 이름, 2줄=hex 색 (예: #F59E0B).`
                     }]
                   }],
                   generationConfig: {
@@ -149,29 +151,21 @@ ${context}
     // Gemini 응답에서 텍스트 추출
     const generatedName = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
-    // 불필요한 공백이나 설명 제거
-    let cleanedName = generatedName
-      .trim()
+    const lines = generatedName.trim().split('\n').map((s: string) => s.trim()).filter(Boolean);
+    let cleanedName = (lines[0] || '')
       .replace(/^레시피\s*이름[:\s]*/i, '')
       .replace(/^추천[:\s]*/i, '')
-      .replace(/^요리\s*이름[:\s]*/i, '')
-      .replace(/^이름[:\s]*/i, '')
-      .replace(/^답변[:\s]*/i, '')
-      .replace(/^결과[:\s]*/i, '')
-      .split('\n')[0] // 첫 줄만 사용
-      .split('.')[0] // 첫 문장만 사용
-      .split(',')[0] // 첫 항목만 사용
-      .replace(/["'`]/g, '') // 따옴표 제거
-      .trim();
-    
-    // 한글 요리 이름 패턴 확인 (2-10자 한글)
+      .split('.')[0].split(',')[0].replace(/["'`]/g, '').trim();
     const koreanRecipeNameMatch = cleanedName.match(/[가-힣]{2,10}/);
-    if (koreanRecipeNameMatch) {
-      cleanedName = koreanRecipeNameMatch[0];
-    }
+    if (koreanRecipeNameMatch) cleanedName = koreanRecipeNameMatch[0];
+
+    const secondLine = lines[1] || '';
+    const hexMatch = secondLine.match(/#[0-9A-Fa-f]{6}/);
+    const color = hexMatch ? hexMatch[0] : undefined;
 
     return NextResponse.json({
       name: cleanedName || title || '레시피',
+      color: color || undefined,
     });
   } catch (error) {
     console.error('Gemini API 호출 실패:', error);

@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Recipe, RecipeCategory, sampleRecipes, getRecipeCategoryColor } from '@/types/recipe';
+import { Recipe, RecipeCategory, getRecipeCategoryColor } from '@/types/recipe';
+import { useAppStore } from '@/store/app-store';
 
 interface RecipeSelectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (recipeIds: string[]) => void;
+  onSelect: (recipeIds: string[], servings?: number) => void;
   currentRecipeIds: string[];
+  currentServings?: number;
 }
 
 const categories: RecipeCategory[] = ['밥', '메인 요리', '사이드 요리', '기본 반찬', '국'];
@@ -17,14 +19,17 @@ export default function RecipeSelectModal({
   onClose,
   onSelect,
   currentRecipeIds,
+  currentServings = 1,
 }: RecipeSelectModalProps) {
+  const recipes = useAppStore((state) => state.recipes);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(currentRecipeIds));
+  const [servings, setServings] = useState<number>(currentServings);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<RecipeCategory | '전체'>('전체');
 
   if (!isOpen) return null;
 
-  const filteredRecipes = sampleRecipes.filter((recipe) => {
+  const filteredRecipes = recipes.filter((recipe) => {
     const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === '전체' || recipe.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -41,34 +46,38 @@ export default function RecipeSelectModal({
   };
 
   const handleConfirm = () => {
-    onSelect(Array.from(selectedIds));
+    onSelect(Array.from(selectedIds), servings ?? currentServings);
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        {/* Header: 메뉴 등록 | 인분(왼쪽) | X */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-4">
           <h2 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>
             메뉴 등록
           </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap">인분</span>
+            <input
+              type="number"
+              min="1"
+              value={servings ?? ''}
+              onChange={(e) => setServings(e.target.value === '' ? undefined : (parseInt(e.target.value) || 1))}
+              className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC] text-center text-sm"
+              aria-label="인분 수"
+              title="인분 수"
+            />
+          </div>
+          <div className="flex-1" />
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="닫기"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -128,15 +137,25 @@ export default function RecipeSelectModal({
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${getRecipeCategoryColor(recipe.category)}`}>
+                      {recipe.category}
+                    </span>
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg" style={{ color: '#1A1A1A' }}>
                         {recipe.name}
                       </h3>
-                      <p className="text-sm text-gray-500 mt-1">{recipe.description}</p>
+                      <p className="text-sm text-gray-500 mt-1 truncate">{recipe.description}</p>
                     </div>
+                    {recipe.color && (
+                      <span
+                        className="w-6 h-6 rounded-full flex-shrink-0 border border-gray-300"
+                        style={{ backgroundColor: recipe.color }}
+                        title="요리 색"
+                      />
+                    )}
                     <div
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ml-4 ${
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
                         isSelected
                           ? 'bg-[#4D99CC] border-[#4D99CC]'
                           : 'bg-white border-gray-300'

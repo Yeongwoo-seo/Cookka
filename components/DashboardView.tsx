@@ -8,6 +8,17 @@ import MenuCalendarView from './MenuCalendarView';
 
 type DashboardTab = 'menu' | 'finance';
 
+/** 숫자 포맷팅: .0이면 정수로 표시, 천 단위 구분자 추가 */
+function formatNumber(num: number, decimals: number = 1): string {
+  const fixed = num.toFixed(decimals);
+  const numValue = parseFloat(fixed);
+  const baseValue = numValue % 1 === 0 ? numValue.toString() : fixed;
+  // 천 단위 구분자 추가
+  const parts = baseValue.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
 export default function DashboardView() {
   const businessMetrics = useAppStore((state) => state.businessMetrics);
   const [activeTab, setActiveTab] = useState<DashboardTab>('menu');
@@ -110,7 +121,7 @@ export default function DashboardView() {
             </div>
             <p className="text-sm opacity-90 mb-1">오늘 매출</p>
             <p className="text-3xl font-bold mb-1">
-              ${(businessMetrics.todayRevenue / 1000).toFixed(2)}
+              ${formatNumber(businessMetrics.todayRevenue / 1000, 2)}
             </p>
             <p className="text-xs opacity-75">USD</p>
           </div>
@@ -127,7 +138,7 @@ export default function DashboardView() {
             </div>
             <p className="text-sm opacity-90 mb-1">오늘 원가</p>
             <p className="text-3xl font-bold mb-1">
-              ${(businessMetrics.todayCost / 1000).toFixed(2)}
+              ${formatNumber(businessMetrics.todayCost / 1000, 2)}
             </p>
             <p className="text-xs opacity-75">USD</p>
           </div>
@@ -144,7 +155,7 @@ export default function DashboardView() {
             </div>
             <p className="text-sm opacity-90 mb-1">순이익</p>
             <p className="text-3xl font-bold mb-1">
-              ${(profit / 1000).toFixed(2)}
+              ${formatNumber(profit / 1000, 2)}
             </p>
             <p className="text-xs opacity-75">USD</p>
           </div>
@@ -161,7 +172,7 @@ export default function DashboardView() {
             </div>
             <p className="text-sm opacity-90 mb-1">수익률</p>
             <p className="text-3xl font-bold mb-1">
-              {profitMargin.toFixed(1)}%
+              {formatNumber(profitMargin, 1)}%
             </p>
             <p className="text-xs opacity-75">목표 대비 105%</p>
           </div>
@@ -186,13 +197,13 @@ export default function DashboardView() {
                       <div
                         className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all hover:from-blue-600 hover:to-blue-500 cursor-pointer"
                         style={{ height: `${(day.revenue / maxRevenue) * 100}%` }}
-                        title={`${day.date}: $${(day.revenue / 1000).toFixed(2)}`}
+                        title={`${day.date}: $${formatNumber(day.revenue / 1000, 2)}`}
                       />
                     </div>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">{day.date}</p>
                   <p className="text-xs font-semibold text-gray-700 mt-1">
-                    {(day.revenue / 1000).toFixed(0)}k
+                    {formatNumber(day.revenue / 1000, 0)}k
                   </p>
                 </div>
               ))}
@@ -236,7 +247,7 @@ export default function DashboardView() {
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <span className="text-sm text-gray-600">목표 대비</span>
                   <span className="text-sm font-semibold text-green-600">
-                    {((businessMetrics.productionCount / 100) * 100).toFixed(0)}%
+                    {formatNumber((businessMetrics.productionCount / 100) * 100, 0)}%
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
@@ -279,7 +290,7 @@ export default function DashboardView() {
                         ${(menuProfit / 1000).toFixed(2)}
                       </p>
                       <p className="text-sm text-gray-500">
-                        수익률 {menuProfitMargin.toFixed(1)}%
+                        수익률 {formatNumber(menuProfitMargin, 1)}%
                       </p>
                     </div>
                   </div>
@@ -288,7 +299,7 @@ export default function DashboardView() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">매출</span>
-                      <span className="font-semibold">${(menu.revenue / 1000).toFixed(2)}</span>
+                      <span className="font-semibold">${formatNumber(menu.revenue / 1000, 2)}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
@@ -298,7 +309,7 @@ export default function DashboardView() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">원가</span>
-                      <span className="font-semibold text-orange-600">${(menu.cost / 1000).toFixed(2)}</span>
+                      <span className="font-semibold text-orange-600">${formatNumber(menu.cost / 1000, 2)}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
@@ -320,7 +331,7 @@ export default function DashboardView() {
                           />
                         </div>
                         <span className="text-sm font-semibold text-green-600 w-12 text-right">
-                          {profitPercentage.toFixed(1)}%
+                          {formatNumber(profitPercentage, 1)}%
                         </span>
                       </div>
                     </div>
@@ -375,7 +386,7 @@ export default function DashboardView() {
               <h4 className="font-semibold text-gray-800">목표 달성률</h4>
             </div>
             <p className="text-2xl font-bold text-cyan-700">
-              {((businessMetrics.productionCount / 100) * 100).toFixed(0)}%
+              {formatNumber((businessMetrics.productionCount / 100) * 100, 0)}%
             </p>
             <p className="text-sm text-gray-600 mt-2">목표: 100개</p>
           </div>

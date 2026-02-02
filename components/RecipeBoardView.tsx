@@ -5,8 +5,21 @@ import { useAppStore } from '@/store/app-store';
 import { Recipe, RecipeCategory, Ingredient, RecipeStep, getRecipeCategoryColor } from '@/types/recipe';
 import { format } from 'date-fns';
 import AddRecipeModal from './AddRecipeModal';
+import { getIngredients } from '@/lib/firestore';
 
 const categories: RecipeCategory[] = ['메인 요리', '사이드 요리', '기본 반찬', '국'];
+
+/** 숫자 포맷팅: .0이면 정수로 표시 */
+/** 숫자 포맷팅: .0이면 정수로 표시, 천 단위 구분자 추가 */
+function formatNumber(num: number, decimals: number = 1): string {
+  const fixed = num.toFixed(decimals);
+  const numValue = parseFloat(fixed);
+  const baseValue = numValue % 1 === 0 ? numValue.toString() : fixed;
+  // 천 단위 구분자 추가
+  const parts = baseValue.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
 
 export default function RecipeBoardView() {
   const recipes = useAppStore((state) => state.recipes);
@@ -15,6 +28,8 @@ export default function RecipeBoardView() {
   const deleteRecipe = useAppStore((state) => state.deleteRecipe);
   const dailyMenuHistory = useAppStore((state) => state.dailyMenuHistory);
   const loadSampleData = useAppStore((state) => state.loadSampleData);
+  const ingredientPrices = useAppStore((state) => state.ingredientPrices);
+  const [firebaseIngredients, setFirebaseIngredients] = useState<Ingredient[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [selectedRecipeVariant, setSelectedRecipeVariant] = useState<string>('메인');
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,200 +39,289 @@ export default function RecipeBoardView() {
   const [editingIngredient, setEditingIngredient] = useState<string | null>(null);
   const [editIngredientData, setEditIngredientData] = useState<{ name: string; quantity: string; unit: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // 데이터 로딩
+  // Firebase 재료 데이터 로드
   useEffect(() => {
+    const loadIngredients = async () => {
+      try {
+        const ingredients = await getIngredients();
+        setFirebaseIngredients(ingredients);
+      } catch (error) {
+        console.error('재료 데이터 로드 실패:', error);
+      }
+    };
+    loadIngredients();
+  }, []);
+
+  // 초기 데이터 로딩
+  useEffect(() => {
+    if (hasInitialized) return;
+    
+    console.log(`📚 RecipeBoardView 마운트 - 현재 레시피 수: ${recipes.length}`);
+    
+    // 레시피가 없으면 샘플 데이터 로드 시도
     if (recipes.length === 0) {
+      console.log('📚 레시피가 없어서 샘플 데이터 로드 시도');
       loadSampleData();
     }
-    // 데이터가 로드되면 로딩 상태 해제
-    if (recipes.length > 0) {
+    
+    // 매우 짧은 시간 후 로딩 해제 (샘플 데이터 로드 시간 고려)
+    const timer = setTimeout(() => {
+      console.log('📚 초기 로딩 완료');
       setIsLoading(false);
-    }
-  }, [recipes.length, loadSampleData]);
+      setHasInitialized(true);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [hasInitialized, recipes.length, loadSampleData]);
 
-  // 1인당 원가 계산
+  // 레시피가 있으면 즉시 로딩 해제
+  useEffect(() => {
+    if (recipes.length > 0) {
+      console.log(`📚 레시피 ${recipes.length}개 발견 - 즉시 로딩 해제`);
+      setIsLoading(false);
+      setHasInitialized(true);
+    }
+  }, [recipes.length]);
+
+  // 1인당 원가 계산 (분석 탭의 메인 제품 가격 사용)
   const calculateCostPerServing = (recipe: Recipe): number => {
     const totalCost = recipe.ingredients.reduce((sum, ing) => {
-      return sum + (ing.costPerUnit * ing.quantity);
+      // 분석 탭의 재료 정보에서 메인 제품 가격 조회
+      const key = `${ing.name}_${ing.unit}`;
+      const matchingIngredient = firebaseIngredients.find(
+        firebaseIng => firebaseIng.name === ing.name && firebaseIng.unit === ing.unit
+      );
+      
+      let costPerUnit = ing.costPerUnit;
+      if (matchingIngredient && matchingIngredient.products && matchingIngredient.products.length > 0) {
+        const mainProduct = matchingIngredient.products.find(p => p.isMain);
+        if (mainProduct && mainProduct.weight > 0) {
+          costPerUnit = mainProduct.price / mainProduct.weight;
+        } else {
+          // 메인 제품이 없으면 가장 저렴한 제품의 가격 사용
+          const sortedProducts = [...matchingIngredient.products].sort((a, b) => {
+            const pricePerUnitA = a.weight > 0 ? a.price / a.weight : Infinity;
+            const pricePerUnitB = b.weight > 0 ? b.price / b.weight : Infinity;
+            return pricePerUnitA - pricePerUnitB;
+          });
+          if (sortedProducts.length > 0 && sortedProducts[0].weight > 0) {
+            costPerUnit = sortedProducts[0].price / sortedProducts[0].weight;
+          }
+        }
+      } else {
+        // Firebase에 없으면 ingredientPrices에서 조회
+        const priceData = ingredientPrices.get(key);
+        costPerUnit = priceData?.costPerUnit ?? ing.costPerUnit;
+      }
+      
+      return sum + (costPerUnit * ing.quantity);
     }, 0);
-    return totalCost / recipe.baseServings;
+    
+    return recipe.baseServings > 0 ? totalCost / recipe.baseServings : totalCost;
   };
 
-  // 필터링된 레시피 목록 (밥 제외)
+  // 필터링 및 정렬된 레시피
   const filteredRecipes = useMemo(() => {
-    return recipes.filter((recipe) => {
-      // 밥 카테고리는 제외
-      if (recipe.category === '밥') return false;
-      const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === '전체' || recipe.category === selectedCategory;
+    let filtered = recipes.filter((r) => {
+      const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           r.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === '전체' || r.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
+
+    // 정렬은 이름순으로 고정
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+    return filtered;
   }, [recipes, searchQuery, selectedCategory]);
 
-  // 필터링된 레시피가 변경되면 선택된 레시피가 필터링 결과에 없으면 선택 해제
-  useEffect(() => {
-    if (selectedRecipe) {
-      const isSelectedInFiltered = filteredRecipes.find(r => r.id === selectedRecipe.id);
-      if (!isSelectedInFiltered) {
-        setSelectedRecipe(null);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredRecipes]);
-
-  if (isLoading || recipes.length === 0) {
+  if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <p className="text-gray-500">데이터를 불러오는 중...</p>
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500">로딩 중...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 h-full flex flex-col overflow-hidden">
-      <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
-        {/* 카테고리 필터 */}
-        <div className="mb-4 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => setSelectedCategory('전체')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      selectedCategory === '전체'
-                        ? 'bg-[#4D99CC] text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+    <div className="flex flex-col h-full p-4 sm:p-6 md:p-8">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>
+          레시피
+        </h2>
+        <p className="text-sm text-gray-500 mt-1">
+          레시피를 관리하고 조리 방법을 확인하세요
+        </p>
+      </div>
+
+      {/* 검색 및 필터 */}
+      <div className="mb-6 space-y-4">
+        <input
+          type="text"
+          placeholder="레시피 검색..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
+        />
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setSelectedCategory('전체')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              selectedCategory === '전체'
+                ? 'bg-[#4D99CC] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            전체
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedCategory === category
+                  ? 'bg-[#4D99CC] text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 레시피 목록 - 2열 그리드 */}
+      <div className="grid grid-cols-2 gap-4 flex-1 overflow-y-auto min-h-0">
+            {filteredRecipes.length === 0 ? (
+              <div className="col-span-2 text-center py-12">
+                <p className="text-sm text-gray-500">검색 결과가 없습니다.</p>
+              </div>
+            ) : (
+              filteredRecipes.map((r) => {
+                const youtubeLink = r.videos && r.videos.length > 0 ? r.videos[0] : null;
+                
+                return (
+                  <div
+                    key={r.id}
+                    onClick={() => setSelectedRecipe(r)}
+                    className={`bg-gray-50 rounded-lg border transition-colors cursor-pointer overflow-hidden flex flex-col h-32 relative ${
+                      selectedRecipe?.id === r.id
+                        ? 'border-[#4D99CC]'
+                        : 'border-gray-200 hover:border-[#4D99CC]'
                     }`}
+                    style={r.color ? { borderLeftWidth: '4px', borderLeftColor: r.color } : undefined}
                   >
-                    전체
-                  </button>
-                  {categories.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        selectedCategory === category
-                          ? 'bg-[#4D99CC] text-white'
-                          : `${getRecipeCategoryColor(category)} hover:opacity-80`
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-            </div>
-          </div>
-        </div>
-
-        {/* 검색 */}
-        <div className="mb-4 flex-shrink-0">
-              <input
-                type="text"
-                placeholder="레시피 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
-              />
-        </div>
-
-        {/* 레시피 목록 - 2열 그리드 */}
-        <div className="grid grid-cols-2 gap-4 flex-1 overflow-y-auto min-h-0">
-              {filteredRecipes.length === 0 ? (
-                <div className="col-span-2 text-center py-12">
-                  <p className="text-sm text-gray-500">검색 결과가 없습니다.</p>
-                </div>
-              ) : (
-                filteredRecipes.map((r) => {
-                  const youtubeLink = r.videos && r.videos.length > 0 ? r.videos[0] : null;
-                  
-                  return (
-                    <div
-                      key={r.id}
-                      onClick={() => setSelectedRecipe(r)}
-                      className={`bg-gray-50 rounded-lg border transition-colors cursor-pointer overflow-hidden flex flex-col h-32 ${
-                        selectedRecipe?.id === r.id
-                          ? 'border-[#4D99CC]'
-                          : 'border-gray-200 hover:border-[#4D99CC]'
-                      }`}
-                    >
-                      {/* 헤더 */}
-                      <div className="p-4 flex-1">
-                        {/* 첫 번째 줄: 카테고리와 수정/삭제 버튼 */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            {r.category && (
-                              <span 
-                                className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                  getRecipeCategoryColor(r.category)
-                                }`}
-                              >
-                                [{r.category}]
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingRecipe(r);
-                              }}
-                              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                              title="수정"
+                    {/* 헤더 */}
+                    <div className="p-4 flex-1">
+                      {/* 첫 번째 줄: 카테고리, 색 점, 수정/삭제 버튼 */}
+                      <div className="flex items-center justify-between mb-2 gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {r.category && (
+                            <span 
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
+                                getRecipeCategoryColor(r.category)
+                              }`}
                             >
-                              수정
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`"${r.name}" 레시피를 삭제하시겠습니까?`)) {
-                                  deleteRecipe(r.id);
-                                }
-                              }}
-                              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                              title="삭제"
-                            >
-                              삭제
-                            </button>
-                          </div>
+                              {r.category}
+                            </span>
+                          )}
+                          {r.color && (
+                            <span
+                              className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-300"
+                              style={{ backgroundColor: r.color }}
+                              title="요리 색"
+                            />
+                          )}
                         </div>
                         
-                        {/* 두 번째 줄: 메뉴 이름 */}
-                        <p className="font-semibold text-base text-[#1A1A1A] mb-2">
-                          {r.name}
-                        </p>
-                        
-                        {/* 세 번째 줄: 설명 */}
-                        {r.description && (
-                          <p className="text-sm text-gray-600 truncate mt-1">{r.description}</p>
-                        )}
-                      </div>
-                      
-                      {/* 유튜브 링크 - 오른쪽 아래 */}
-                      {youtubeLink && (
-                        <div className="p-4 pt-0 flex justify-end">
-                          <a
-                            href={youtubeLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 transition-colors"
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingRecipe(r);
+                            }}
+                            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            title="수정"
                           >
                             <svg
-                              className="w-5 h-5"
-                              fill="currentColor"
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
                               viewBox="0 0 24 24"
                             >
-                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
                             </svg>
-                            <span>레시피 보기</span>
-                          </a>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`"${r.name}" 레시피를 삭제하시겠습니까?`)) {
+                                deleteRecipe(r.id);
+                              }
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded transition-colors"
+                            title="삭제"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
                         </div>
+                      </div>
+                      
+                      {/* 두 번째 줄: 메뉴 이름 */}
+                      <p className="font-semibold text-base text-[#1A1A1A] mb-2">
+                        {r.name}
+                      </p>
+                      
+                      {/* 세 번째 줄: 설명 */}
+                      {r.description && (
+                        <p className="text-sm text-gray-600 truncate mt-1">{r.description}</p>
                       )}
                     </div>
-                  );
-                })
-              )}
-        </div>
+                    
+                    {/* 유튜브 링크 - 오른쪽 아래 */}
+                    {youtubeLink && (
+                      <div className="p-4 pt-0 flex justify-end">
+                        <a
+                          href={youtubeLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 transition-colors"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                          </svg>
+                          <span>레시피 보기</span>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
       </div>
 
       {/* 레시피 상세 모달 */}
@@ -236,7 +340,7 @@ export default function RecipeBoardView() {
         
         return (
           <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+            className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-[calc(80px+env(safe-area-inset-bottom,0px))] bg-black bg-opacity-50"
             onClick={() => {
               setSelectedRecipe(null);
               setSelectedRecipeVariant('메인');
@@ -273,7 +377,7 @@ export default function RecipeBoardView() {
                           <div className="text-right">
                             <p className="text-sm text-gray-500 mb-1">1인당 원가</p>
                             <p className="text-2xl font-bold text-[#4D99CC]">
-                              ${(costPerServing / 1000).toFixed(1)}
+                              ${formatNumber(costPerServing / 1000, 1)}
                             </p>
                           </div>
                           <button
@@ -325,135 +429,61 @@ export default function RecipeBoardView() {
 
                       {/* 재료 목록 */}
                       <div className="mb-6">
-                        <h4 className="font-semibold mb-3">필요 재료 ({displayRecipe.baseServings}인분 기준)</h4>
+                        <h4 className="font-semibold mb-3">필요 재료 (1인분 기준)</h4>
                         <div className="grid grid-cols-2 gap-2">
                           {displayRecipe.ingredients.map((ingredient) => {
-                            const ingredientCost = ingredient.costPerUnit * ingredient.quantity;
+                            // 분석 탭의 재료 정보에서 메인 제품 가격 조회
+                            const key = `${ingredient.name}_${ingredient.unit}`;
+                            const matchingIngredient = firebaseIngredients.find(
+                              ing => ing.name === ingredient.name && ing.unit === ingredient.unit
+                            );
+                            
+                            // 메인 제품의 단위당 가격 계산
+                            let costPerUnit = ingredient.costPerUnit;
+                            if (matchingIngredient && matchingIngredient.products && matchingIngredient.products.length > 0) {
+                              const mainProduct = matchingIngredient.products.find(p => p.isMain);
+                              if (mainProduct && mainProduct.weight > 0) {
+                                // 메인 제품의 단위당 가격
+                                costPerUnit = mainProduct.price / mainProduct.weight;
+                              } else {
+                                // 메인 제품이 없으면 가장 저렴한 제품의 가격 사용
+                                const sortedProducts = [...matchingIngredient.products].sort((a, b) => {
+                                  const pricePerUnitA = a.weight > 0 ? a.price / a.weight : Infinity;
+                                  const pricePerUnitB = b.weight > 0 ? b.price / b.weight : Infinity;
+                                  return pricePerUnitA - pricePerUnitB;
+                                });
+                                if (sortedProducts.length > 0 && sortedProducts[0].weight > 0) {
+                                  costPerUnit = sortedProducts[0].price / sortedProducts[0].weight;
+                                }
+                              }
+                            } else {
+                              // Firebase에 없으면 ingredientPrices에서 조회
+                              const priceData = ingredientPrices.get(key);
+                              costPerUnit = priceData?.costPerUnit ?? ingredient.costPerUnit;
+                            }
+                            
+                            // 1인분 기준 수량 계산
+                            const quantityPerServing = displayRecipe.baseServings > 0 
+                              ? ingredient.quantity / displayRecipe.baseServings 
+                              : ingredient.quantity;
+                            
+                            const ingredientCost = costPerUnit * quantityPerServing;
+                            // 원가 표시: 재료 탭과 동일하게 /kg로 표시
+                            const displayUnit = 'kg';
+                            const pricePerUnit = costPerUnit > 0 ? costPerUnit : 0; // $/kg 단위로 표시 (변환 없이)
                             return (
                               <div
                                 key={ingredient.id}
-                                className="flex justify-between items-center p-3 bg-gray-50 rounded-lg group"
+                                className="flex justify-between items-center p-3 bg-gray-50 rounded-lg min-w-0"
                               >
-                                <span className="font-medium">{ingredient.name}</span>
-                                <div className="flex items-center gap-4">
-                                  <span className="text-gray-600">
-                                    {ingredient.quantity % 1 === 0 ? ingredient.quantity.toString() : ingredient.quantity.toFixed(1)} {ingredient.unit}
+                                <span className="font-medium truncate flex-shrink-0 mr-2">{ingredient.name}</span>
+                                <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                                  <span className="text-gray-600 text-sm sm:text-base whitespace-nowrap">
+                                    {formatNumber(quantityPerServing, 1)} g
                                   </span>
-                                  <span className="text-sm text-gray-500">
-                                    ${(ingredientCost / 1000).toFixed(1)}
+                                  <span className="text-sm font-medium text-[#4D99CC] whitespace-nowrap">
+                                    {pricePerUnit > 0 ? `$${formatNumber(pricePerUnit, 1)}/${displayUnit}` : '-'}
                                   </span>
-                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {editingIngredient === ingredient.id ? (
-                                      <>
-                                        <input
-                                          type="text"
-                                          value={editIngredientData?.name || ''}
-                                          onChange={(e) => setEditIngredientData({ ...editIngredientData!, name: e.target.value })}
-                                          className="w-20 px-2 py-1 text-sm border border-gray-300 rounded"
-                                          placeholder="이름"
-                                        />
-                                        <input
-                                          type="number"
-                                          step="0.1"
-                                          value={editIngredientData?.quantity || ''}
-                                          onChange={(e) => setEditIngredientData({ ...editIngredientData!, quantity: e.target.value })}
-                                          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
-                                          placeholder="수량"
-                                        />
-                                        <input
-                                          type="text"
-                                          value={editIngredientData?.unit || ''}
-                                          onChange={(e) => setEditIngredientData({ ...editIngredientData!, unit: e.target.value })}
-                                          className="w-12 px-2 py-1 text-sm border border-gray-300 rounded"
-                                          placeholder="단위"
-                                        />
-                                        <button
-                                          onClick={() => {
-                                            if (editIngredientData) {
-                                              const newIngredients = displayRecipe.ingredients.map((ing) =>
-                                                ing.id === ingredient.id
-                                                  ? {
-                                                      ...ing,
-                                                      name: editIngredientData.name || ing.name,
-                                                      quantity: parseFloat(editIngredientData.quantity) || ing.quantity,
-                                                      unit: editIngredientData.unit || ing.unit,
-                                                    }
-                                                  : ing
-                                              );
-                                              const updatedRecipe = {
-                                                ...recipe,
-                                                ingredients: newIngredients,
-                                                updatedAt: new Date(),
-                                              };
-                                              updateRecipe(updatedRecipe);
-                                              setSelectedRecipe(updatedRecipe);
-                                            }
-                                            setEditingIngredient(null);
-                                            setEditIngredientData(null);
-                                          }}
-                                          className="p-1 text-green-500 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
-                                          title="저장"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                          </svg>
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setEditingIngredient(null);
-                                            setEditIngredientData(null);
-                                          }}
-                                          className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
-                                          title="취소"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                          </svg>
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <button
-                                          onClick={() => {
-                                            setEditingIngredient(ingredient.id);
-                                            setEditIngredientData({
-                                              name: ingredient.name,
-                                              quantity: ingredient.quantity.toString(),
-                                              unit: ingredient.unit,
-                                            });
-                                          }}
-                                          className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
-                                          title="수정"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                          </svg>
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            if (confirm('이 재료를 삭제하시겠습니까?')) {
-                                              const newIngredients = displayRecipe.ingredients.filter(
-                                                (ing) => ing.id !== ingredient.id
-                                              );
-                                              const updatedRecipe = {
-                                                ...recipe,
-                                                ingredients: newIngredients,
-                                                updatedAt: new Date(),
-                                              };
-                                              updateRecipe(updatedRecipe);
-                                              setSelectedRecipe(updatedRecipe);
-                                            }
-                                          }}
-                                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                                          title="삭제"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                          </svg>
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
                                 </div>
                               </div>
                             );
@@ -485,25 +515,6 @@ export default function RecipeBoardView() {
                         ))}
                       </div>
                     </div>
-
-                      {/* 주의사항 */}
-                      {displayRecipe.notes && (
-                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <p className="text-sm font-medium text-yellow-800">
-                            ⚠️ 주의사항
-                          </p>
-                          <p className="text-sm text-yellow-700 mt-1">{displayRecipe.notes}</p>
-                        </div>
-                      )}
-
-                      {/* 업데이트 정보 */}
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <p className="text-xs text-gray-500">
-                          마지막 업데이트:{' '}
-                          {format(displayRecipe.updatedAt, 'yyyy년 MM월 dd일 HH:mm')}
-                          {displayRecipe.updatedBy && ` by ${displayRecipe.updatedBy}`}
-                        </p>
-                      </div>
                     </>
                   );
                 })()}
@@ -513,62 +524,24 @@ export default function RecipeBoardView() {
         );
       })()}
 
-      {/* 레시피 추가 모달 */}
-      {isAddModalOpen && (
-        <AddRecipeModal
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={(recipe) => {
-            addRecipe(recipe);
-            setIsAddModalOpen(false);
-          }}
-        />
-      )}
-
-      {/* 레시피 수정 모달 */}
-      {editingRecipe && (
-        <AddRecipeModal
-          initialRecipe={editingRecipe}
-          onClose={() => setEditingRecipe(null)}
-          onAdd={(recipe) => {
+      {/* 레시피 추가/수정 모달 */}
+      <AddRecipeModal
+        isOpen={isAddModalOpen || editingRecipe !== null}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingRecipe(null);
+        }}
+        onAdd={(recipe) => {
+          if (editingRecipe) {
             updateRecipe(recipe);
-            setEditingRecipe(null);
-            // 수정된 레시피가 선택되어 있으면 업데이트
-            if (selectedRecipe?.id === recipe.id) {
-              setSelectedRecipe(recipe);
-            }
-          }}
-        />
-      )}
-
-      {/* Floating 레시피 추가 버튼 - 모달이 열려있을 때는 숨김 */}
-      {!isAddModalOpen && (
-        <div 
-          className="fixed right-6 z-50"
-          style={{
-            bottom: `calc(70px + 10px + env(safe-area-inset-bottom, 0px))`
-          }}
-        >
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-6 py-3 bg-[#4D99CC] text-white rounded-full shadow-lg hover:bg-[#3d89bc] transition-colors flex items-center gap-2 font-medium"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            레시피 추가
-          </button>
-        </div>
-      )}
+          } else {
+            addRecipe(recipe);
+          }
+          setIsAddModalOpen(false);
+          setEditingRecipe(null);
+        }}
+        initialRecipe={editingRecipe || undefined}
+      />
     </div>
   );
 }

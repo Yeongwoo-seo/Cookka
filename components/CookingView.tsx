@@ -40,6 +40,38 @@ export default function CookingView({
     '#8B5CF6', // 보라색
   ];
 
+  // 조리단계 텍스트에서 수량을 추출하고 인분에 따라 변환하는 함수
+  const scaleStepDescription = (description: string, recipeBaseServings: number, currentServings: number): string => {
+    if (recipeBaseServings === currentServings || recipeBaseServings === 0) return description;
+    
+    const ratio = currentServings / recipeBaseServings;
+    
+    // 패턴: 숫자 + 단위 (g, kg, ml, L, 개, 스푼, 큰술, 작은술 등)
+    // 예: "10g", "1kg", "2개", "1스푼", "1큰술", "맛술 10g", "10g을 넣어주세요" 등
+    // 공백이 있을 수도 있고 없을 수도 있음
+    const quantityPattern = /(\d+(?:\.\d+)?)\s*(g|kg|ml|L|개|스푼|큰술|작은술|컵|T|t|tbsp|tsp|tablespoon|teaspoon)/gi;
+    
+    return description.replace(quantityPattern, (match, number, unit) => {
+      const originalQuantity = parseFloat(number);
+      const scaledQuantity = originalQuantity * ratio;
+      
+      // 소수점 처리: 0.1 이하는 0.1로, 그 외는 적절한 소수점 자리수로
+      let formattedQuantity: string;
+      if (scaledQuantity < 0.1) {
+        formattedQuantity = '0.1';
+      } else if (scaledQuantity < 1) {
+        formattedQuantity = scaledQuantity.toFixed(1);
+      } else if (scaledQuantity % 1 === 0) {
+        formattedQuantity = scaledQuantity.toString();
+      } else {
+        formattedQuantity = scaledQuantity.toFixed(1);
+      }
+      
+      // 원본 단위의 대소문자 유지
+      return `${formattedQuantity}${unit}`;
+    });
+  };
+
   const toggleStep = (stepId: string, stepDuration?: number) => {
     const stepInfo = findStepInRecipe(stepId);
     if (!stepInfo) return;
@@ -458,8 +490,10 @@ export default function CookingView({
                 }`}
                 style={timerActive ? { backgroundColor: '#EFF6FF' } : timerEnded ? { backgroundColor: '#FEF2F2' } : undefined}
                 >
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-2 flex-1 min-w-0" style={{ minWidth: '200px', flexBasis: '50%' }}>
+                  {/* 3단 구조: [펼쳐보기] [텍스트] [다음] - 버튼 위치 고정, 텍스트는 가운데 영역 */}
+                  <div className="flex items-center gap-4">
+                    {/* 왼쪽 고정: 레시피명 + 펼치기 chevron + 타이머 */}
+                    <div className="flex items-center gap-2 flex-shrink-0 min-w-[140px]">
                       <span className="font-semibold truncate" style={{ color: '#1A1A1A' }}>
                         {recipe.name}
                       </span>
@@ -478,13 +512,11 @@ export default function CookingView({
                           d="M19 9l-7 7-7-7"
                         />
                       </svg>
-                      {/* 타이머 시간 - 스톱워치 아이콘 왼쪽에 표시 */}
                       {nextStep && timers.has(nextStep.id) && (
-                        <span className="ml-2 text-sm font-mono font-semibold flex-shrink-0" style={{ color: '#1A1A1A' }}>
+                        <span className="text-sm font-mono font-semibold flex-shrink-0" style={{ color: '#1A1A1A' }}>
                           {formatTime(timers.get(nextStep.id)!.remaining)}
                         </span>
                       )}
-                      {/* 스톱워치 아이콘 - 시간이 명시된 경우에만 표시 */}
                       {nextStep && extractDurationFromText(nextStep.description) && (
                         <button
                           onClick={(e) => {
@@ -492,49 +524,42 @@ export default function CookingView({
                             const extractedDuration = extractDurationFromText(nextStep.description);
                             if (extractedDuration) {
                               if (timers.has(nextStep.id)) {
-                                // 타이머가 실행 중이면 정지
                                 stopTimer(nextStep.id);
                               } else {
-                                // 타이머가 없으면 시작
                                 startTimer(nextStep.id, extractedDuration);
                               }
                             }
                           }}
-                          className={`ml-2 p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0 ${
+                          className={`p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0 ${
                             timers.has(nextStep.id) ? 'text-[#4D99CC]' : 'text-gray-400'
                           }`}
                           title={timers.has(nextStep.id) ? '타이머 정지' : '타이머 시작'}
                         >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </button>
                       )}
                     </div>
-                    
-                    <div className="flex items-center gap-4 flex-shrink-0" style={{ minWidth: '200px', flexBasis: '50%', justifyContent: 'flex-end' }}>
-                      {/* 현재 단계 정보 */}
-                      <div className="flex flex-col items-end flex-1 min-w-0">
-                        {isRecipeComplete ? (
-                          <span className="text-sm text-gray-600 whitespace-nowrap">완료</span>
-                        ) : nextStep ? (
-                          <span className="text-sm font-medium text-right break-words" style={{ color: '#1A1A1A' }}>
-                            {nextStep.order}단계 - {nextStep.description}
+                    {/* 가운데: 조리 단계 텍스트 (좌우 여백으로 버튼과 분리) */}
+                    <div className="flex-1 min-w-0 px-4 flex items-center">
+                      {isRecipeComplete ? (
+                        <span className="text-sm text-gray-600">완료</span>
+                      ) : nextStep ? (() => {
+                        const stepInfo = findStepInRecipe(nextStep.id);
+                        const recipe = stepInfo?.recipe;
+                        const scaledDescription = recipe 
+                          ? scaleStepDescription(nextStep.description, recipe.baseServings, dailyMenu.servings)
+                          : nextStep.description;
+                        return (
+                          <span className="text-sm font-medium text-gray-900 break-words leading-relaxed">
+                            {nextStep.order}단계 - {scaledDescription}
                           </span>
-                        ) : null}
-                      </div>
-                      
-                      {/* 다음 버튼 */}
+                        );
+                      })() : null}
+                    </div>
+                    {/* 오른쪽 고정: 다음 버튼 */}
+                    <div className="flex-shrink-0 w-[60px] flex justify-end">
                       {nextStep && (
                         <button
                           onClick={(e) => {
@@ -546,8 +571,8 @@ export default function CookingView({
                               toggleStep(nextStep.id, extractedDuration || undefined);
                             }
                           }}
-                          className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg font-medium text-sm hover:bg-[#3d89bc] transition-colors shadow-sm whitespace-nowrap flex-shrink-0"
-                          style={{ minWidth: '60px', width: '60px' }}
+                          className="px-4 py-2 bg-[#4D99CC] text-white rounded-lg font-medium text-sm hover:bg-[#3d89bc] transition-colors shadow-sm whitespace-nowrap"
+                          style={{ minWidth: '60px' }}
                         >
                           다음
                         </button>
@@ -687,7 +712,7 @@ export default function CookingView({
                                     : 'text-gray-900'
                                 }`}
                               >
-                                {step.description}
+                                {scaleStepDescription(step.description, recipe.baseServings, dailyMenu.servings)}
                               </p>
                             </div>
                           </div>

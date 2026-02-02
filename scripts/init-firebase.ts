@@ -99,7 +99,7 @@ async function initFirebase() {
     const todayMenuRef = doc(db, 'dailyMenus', todayKey);
     await setDoc(todayMenuRef, {
       date: dateToTimestamp(today),
-      recipes: todayRecipes,
+      recipeIds: todayRecipes.map((r) => r.id),
       servings: 50,
     });
     console.log(`  ✓ ${todayKey} 메뉴 업로드 완료`);
@@ -115,7 +115,7 @@ async function initFirebase() {
         const menuRef = doc(db, 'dailyMenus', dateKey);
         await setDoc(menuRef, {
           date: dateToTimestamp(date),
-          recipes: sampleRecipes.slice(0, menuCount),
+          recipeIds: sampleRecipes.slice(0, menuCount).map((r) => r.id),
           servings: 50,
         });
         console.log(`  ✓ ${dateKey} 메뉴 업로드 완료`);
