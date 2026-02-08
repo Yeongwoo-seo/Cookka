@@ -2144,6 +2144,22 @@ export default function MenuAnalysisView() {
                               </div>
                             );
                           })}
+                          {editingRecipeIngredientsId === recipe.id && (
+                            <button
+                              onClick={() => {
+                                const newIngredient = {
+                                  id: `ingredient-${Date.now()}`,
+                                  name: '',
+                                  quantity: '1',
+                                  unit: 'g',
+                                };
+                                setEditAllIngredientsData([...editAllIngredientsData, newIngredient]);
+                              }}
+                              className="col-span-2 w-full px-4 py-2 text-sm text-[#4D99CC] border border-[#4D99CC] rounded-lg hover:bg-[#4D99CC] hover:text-white transition-colors"
+                            >
+                              + 재료 추가
+                            </button>
+                          )}
                         </div>
                       </div>
 
