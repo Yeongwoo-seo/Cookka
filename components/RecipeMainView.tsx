@@ -152,6 +152,9 @@ export default function RecipeMainView() {
 
   return (
     <div className="flex flex-col relative safari-full-height" style={{ backgroundColor: '#FAFAFB' }}>
+      {/* Version Info */}
+      <VersionInfo />
+      
       {/* Main Content */}
       <main className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}>
         {activeTab === 'recipes' && viewState === 'menu' && (

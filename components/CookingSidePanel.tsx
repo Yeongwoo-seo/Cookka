@@ -1,6 +1,6 @@
 'use client';
 
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { DailyMenu } from '@/types/daily-menu';
 import IngredientPrepView from './IngredientPrepView';
 import CookingView from './CookingView';
@@ -33,6 +33,36 @@ export default function CookingSidePanel({
   onPrepComplete,
   onCookingComplete,
 }: CookingSidePanelProps) {
+  const [commitInfo, setCommitInfo] = useState<{ hash: string; date: string; time: string } | null>(null);
+
+  useEffect(() => {
+    // 클라이언트에서만 커밋 정보 가져오기
+    if (typeof window !== 'undefined') {
+      // 빌드 시점에 주입된 커밋 정보가 있으면 사용
+      const buildCommitHash = process.env.NEXT_PUBLIC_COMMIT_HASH;
+      const buildCommitDate = process.env.NEXT_PUBLIC_COMMIT_DATE;
+      
+      if (buildCommitHash && buildCommitDate) {
+        const [date, time] = buildCommitDate.split(' ');
+        setCommitInfo({
+          hash: buildCommitHash.substring(0, 7),
+          date: date,
+          time: time || '',
+        });
+      } else {
+        // 환경 변수가 없으면 현재 시간 표시
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().slice(0, 5);
+        setCommitInfo({
+          hash: 'dev',
+          date: dateStr,
+          time: timeStr,
+        });
+      }
+    }
+  }, []);
+
   if (!isOpen) return null;
 
   return (
@@ -51,10 +81,17 @@ export default function CookingSidePanel({
             {viewState === 'cooking' && '조리 진행'}
             {viewState === 'complete' && '조리 완료'}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
+          <div className="flex items-center gap-3">
+            {commitInfo && (
+              <div className="text-[9px] sm:text-[10px] text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded">
+                <div className="text-gray-500">{commitInfo.hash}</div>
+                <div className="text-gray-400">{commitInfo.date} {commitInfo.time}</div>
+              </div>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
             <svg
               width="24"
               height="24"
@@ -71,6 +108,7 @@ export default function CookingSidePanel({
               />
             </svg>
           </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
