@@ -962,203 +962,169 @@ export default function AddRecipeModal({ isOpen, onClose, onAdd, initialRecipe }
                   <span className="text-sm text-gray-700">인분으로 설정합니다.</span>
                 </div>
               </div>
-              {extractedIngredients.length > 0 ? (
-                <>
-                  <div className="flex flex-col gap-3 mb-3">
-                    {extractedIngredients
-                      .map((ing) => {
-                      // 재고에서 재료명과 단위로 매칭하여 원가 가져오기
-                      const inventoryItem = inventory.find(
-                        (item) => item.name === ing.name && item.unit === ing.unit
-                      );
-                      const costPerUnit = inventoryItem 
-                        ? calculateWeightedAverageCost(inventoryItem)
-                        : (ing.costPerUnit || 0);
-                      const ingredientCost = ing.quantity * costPerUnit;
-                      
-                      // 카테고리 자동 설정 (없으면 자동 분류)
-                      const category = ing.category || getIngredientCategory(ing.name);
-                      
-                      return (
-                        <div
-                          key={ing.id}
-                          className="bg-gray-100 rounded-lg p-3 flex items-center gap-2 min-w-0"
-                        >
-                          {/* 카테고리 뱃지 (재료 탭과 동일한 스타일) - 클릭 가능, 고정 크기 */}
-                          <div className="relative flex-shrink-0">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                try {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setEditingCategoryId(editingCategoryId === ing.id ? null : ing.id);
-                                } catch (error) {
-                                  console.error('카테고리 편집 시작 오류:', error);
-                                }
-                              }}
-                              className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${getCategoryColor(category)}`}
-                            >
-                              {category}
-                            </button>
-                            {editingCategoryId === ing.id && (
-                              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[80px]">
-                                {(['육류', '채소', '조미료', '곡물', '기타'] as IngredientCategory[]).map((cat) => (
-                                  <button
-                                    key={cat}
-                                    type="button"
-                                    onClick={(e) => {
-                                      try {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        const updatedIngredients = extractedIngredients.map((i) =>
-                                          i.id === ing.id
-                                            ? { ...i, category: cat }
-                                            : i
-                                        );
-                                        setExtractedIngredients(updatedIngredients);
-                                        setEditingCategoryId(null);
-                                      } catch (error) {
-                                        console.error('카테고리 변경 오류:', error);
-                                        setEditingCategoryId(null);
-                                      }
-                                    }}
-                                    className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg ${
-                                      category === cat ? 'bg-blue-50 text-[#4D99CC]' : 'text-gray-700'
-                                    }`}
-                                  >
-                                    {cat}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {/* 재료명 입력 - 반응형, 최소 너비 설정 */}
-                          <input
-                            type="text"
-                            value={ing.name}
-                            onChange={(e) => {
-                              const newName = e.target.value;
-                              const updatedIngredients = extractedIngredients.map((i) => {
-                                if (i.id === ing.id) {
-                                  // 재료명이 변경되면 자동으로 적절한 단위 설정
-                                  return { ...i, name: newName, unit: DEFAULT_UNIT };
-                                }
-                                return i;
-                              });
-                              setExtractedIngredients(updatedIngredients);
-                            }}
-                            className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
-                            placeholder="재료명"
-                          />
-                          {/* 수량 입력 - 반응형, 최소/최대 너비 설정, 스피너 제거 */}
-                          <input
-                            type="number"
-                            value={ing.quantity ?? ''}
-                            onChange={(e) => {
-                              const updatedIngredients: typeof extractedIngredients = extractedIngredients.map((i) =>
-                                i.id === ing.id
-                                  ? { ...i, quantity: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) }
-                                  : i
-                              );
-                              setExtractedIngredients(updatedIngredients);
-                            }}
-                            className="w-16 sm:w-20 px-2 py-1.5 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC] text-sm flex-shrink-0 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
-                            min="0"
-                            step="0.1"
-                          />
-                          <span className="text-sm text-gray-600 flex-shrink-0 w-6">g</span>
+              {/* 재료 목록 */}
+              {extractedIngredients.length > 0 && (
+                <div className="flex flex-col gap-3 mb-3">
+                  {extractedIngredients.map((ing) => {
+                    // 재고에서 재료명과 단위로 매칭하여 원가 가져오기
+                    const inventoryItem = inventory.find(
+                      (item) => item.name === ing.name && item.unit === ing.unit
+                    );
+                    const costPerUnit = inventoryItem 
+                      ? calculateWeightedAverageCost(inventoryItem)
+                      : (ing.costPerUnit || 0);
+                    const ingredientCost = ing.quantity * costPerUnit;
+                    
+                    // 카테고리 자동 설정 (없으면 자동 분류)
+                    const category = ing.category || getIngredientCategory(ing.name);
+                    
+                    return (
+                      <div
+                        key={ing.id}
+                        className="bg-gray-100 rounded-lg p-3 flex items-center gap-2 min-w-0"
+                      >
+                        {/* 카테고리 뱃지 (재료 탭과 동일한 스타일) - 클릭 가능, 고정 크기 */}
+                        <div className="relative flex-shrink-0">
                           <button
                             type="button"
-                            onClick={() => {
-                              const updatedIngredients = extractedIngredients.filter((i) => i.id !== ing.id);
-                              setExtractedIngredients(updatedIngredients);
+                            onClick={(e) => {
+                              try {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setEditingCategoryId(editingCategoryId === ing.id ? null : ing.id);
+                              } catch (error) {
+                                console.error('카테고리 편집 시작 오류:', error);
+                              }
                             }}
-                            className="text-red-500 hover:text-red-700 transition-colors flex-shrink-0 ml-auto"
+                            className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${getCategoryColor(category)}`}
                           >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
+                            {category}
                           </button>
+                          {editingCategoryId === ing.id && (
+                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[80px]">
+                              {(['육류', '채소', '조미료', '곡물', '기타'] as IngredientCategory[]).map((cat) => (
+                                <button
+                                  key={cat}
+                                  type="button"
+                                  onClick={(e) => {
+                                    try {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const updatedIngredients = extractedIngredients.map((i) =>
+                                        i.id === ing.id
+                                          ? { ...i, category: cat }
+                                          : i
+                                      );
+                                      setExtractedIngredients(updatedIngredients);
+                                      setEditingCategoryId(null);
+                                    } catch (error) {
+                                      console.error('카테고리 변경 오류:', error);
+                                      setEditingCategoryId(null);
+                                    }
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg ${
+                                    category === cat ? 'bg-blue-50 text-[#4D99CC]' : 'text-gray-700'
+                                  }`}
+                                >
+                                  {cat}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newIngredient: Ingredient = {
-                        id: `ingredient-${Date.now()}`,
-                        name: '',
-                        quantity: 1,
-                        unit: 'g', // 재료명이 입력되면 자동으로 변경됨
-                        costPerUnit: 0,
-                        category: '기타',
-                      };
-                      setExtractedIngredients([...extractedIngredients, newIngredient]);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 text-[#4D99CC] border border-[#4D99CC] rounded-lg hover:bg-[#4D99CC] hover:text-white transition-colors w-full justify-center"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    재료 추가
-                  </button>
-                </>
-              ) : (
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newIngredient: Ingredient = {
-                        id: `ingredient-${Date.now()}`,
-                        name: '',
-                        quantity: 1,
-                        unit: 'g', // 재료명이 입력되면 자동으로 변경됨
-                        costPerUnit: 0,
-                        category: '기타',
-                      };
-                      setExtractedIngredients([newIngredient]);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 text-[#4D99CC] border border-[#4D99CC] rounded-lg hover:bg-[#4D99CC] hover:text-white transition-colors w-full justify-center"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    재료 추가
-                  </button>
+                        {/* 재료명 입력 - 반응형, 최소 너비 설정 */}
+                        <input
+                          type="text"
+                          value={ing.name}
+                          onChange={(e) => {
+                            const newName = e.target.value;
+                            const updatedIngredients = extractedIngredients.map((i) => {
+                              if (i.id === ing.id) {
+                                // 재료명이 변경되면 자동으로 적절한 단위 설정
+                                return { ...i, name: newName, unit: DEFAULT_UNIT };
+                              }
+                              return i;
+                            });
+                            setExtractedIngredients(updatedIngredients);
+                          }}
+                          className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC]"
+                          placeholder="재료명"
+                        />
+                        {/* 수량 입력 - 반응형, 최소/최대 너비 설정, 스피너 제거 */}
+                        <input
+                          type="number"
+                          value={ing.quantity ?? ''}
+                          onChange={(e) => {
+                            const updatedIngredients: typeof extractedIngredients = extractedIngredients.map((i) =>
+                              i.id === ing.id
+                                ? { ...i, quantity: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) }
+                                : i
+                            );
+                            setExtractedIngredients(updatedIngredients);
+                          }}
+                          className="w-16 sm:w-20 px-2 py-1.5 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#4D99CC] text-sm flex-shrink-0 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                          min="0"
+                          step="0.1"
+                        />
+                        <span className="text-sm text-gray-600 flex-shrink-0 w-6">g</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedIngredients = extractedIngredients.filter((i) => i.id !== ing.id);
+                            setExtractedIngredients(updatedIngredients);
+                          }}
+                          className="text-red-500 hover:text-red-700 transition-colors flex-shrink-0 ml-auto"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+              {/* 재료 추가 버튼 - 항상 표시 (수정 모드에서도 명확하게 보이도록) */}
+              <button
+                type="button"
+                onClick={() => {
+                  const newIngredient: Ingredient = {
+                    id: `ingredient-${Date.now()}`,
+                    name: '',
+                    quantity: 1,
+                    unit: 'g',
+                    costPerUnit: 0,
+                    category: '기타',
+                  };
+                  setExtractedIngredients([...extractedIngredients, newIngredient]);
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-[#4D99CC] border border-[#4D99CC] rounded-lg hover:bg-[#4D99CC] hover:text-white transition-colors w-full justify-center"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                재료 추가
+              </button>
             </div>
 
             {/* 조리방법 */}

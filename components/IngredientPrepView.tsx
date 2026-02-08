@@ -197,7 +197,7 @@ export default function IngredientPrepView({
             <button
               onClick={onComplete}
               disabled={!isAllPrepared}
-              className={`w-full py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg ${
+              className={`w-full py-4 rounded-xl font-semibold text-lg transition-colors shadow-md ${
                 isAllPrepared
                   ? 'bg-[#4D99CC] text-white hover:bg-[#3d89bc] cursor-pointer'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'

@@ -504,14 +504,14 @@ export default function TodayMenuView({
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{
-            bottom: `calc(70px + 25px + env(safe-area-inset-bottom, 0px))`
+            bottom: `calc(70px + 5px + env(safe-area-inset-bottom, 0px))`
           }}
         >
           <div className="max-w-4xl mx-auto">
             <button
               onClick={onStartCooking}
               className="w-full bg-[#4D99CC] text-white rounded-xl font-semibold text-lg hover:bg-[#3d89bc] transition-colors shadow-lg"
-              style={{ paddingTop: '1.375rem', paddingBottom: '1.375rem' }}
+              style={{ paddingTop: '1.75rem', paddingBottom: '1.75rem' }}
             >
               요리 시작
             </button>
