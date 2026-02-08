@@ -45,7 +45,7 @@ export default function CookingSidePanel({
       
       {/* 사이드 패널 */}
       <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 side-panel flex flex-col">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-white px-6 py-4 flex items-center justify-between z-10 relative">
           <h2 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>
             {viewState === 'prep' && '재료 준비'}
             {viewState === 'cooking' && '조리 진행'}

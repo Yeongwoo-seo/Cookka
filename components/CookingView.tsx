@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { DailyMenu } from '@/types/daily-menu';
-import { Recipe, RecipeStep } from '@/types/recipe';
+import { Recipe, RecipeStep, Ingredient } from '@/types/recipe';
 
 interface CookingViewProps {
   dailyMenu: DailyMenu;
@@ -23,13 +23,85 @@ export default function CookingView({
   setCompletedSteps,
   onComplete,
 }: CookingViewProps) {
-  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(
-    dailyMenu.recipes[0]?.id || null
-  );
+  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
   const [timers, setTimers] = useState<Map<string, TimerState>>(new Map());
   const [finishedTimers, setFinishedTimers] = useState<Set<string>>(new Set());
   const [recentlyChecked, setRecentlyChecked] = useState<Set<string>>(new Set());
   const timerIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // 레시피별 완료된 단계 관리 (Map<recipeId, Set<stepId>>)
+  const [completedStepsByRecipe, setCompletedStepsByRecipe] = useState<Map<string, Set<string>>>(new Map());
+  const initializedRecipeIdsRef = useRef<Set<string>>(new Set());
+  
+  // 초기 상태 설정 (클라이언트에서만 실행, 레시피별로 한 번만)
+  useEffect(() => {
+    // 모든 레시피가 초기화되었는지 확인
+    const allInitialized = dailyMenu.recipes.every(recipe => initializedRecipeIdsRef.current.has(recipe.id));
+    if (allInitialized && completedStepsByRecipe.size === dailyMenu.recipes.length) return;
+    
+    setCompletedStepsByRecipe((currentMap) => {
+      const newMap = new Map(currentMap);
+      dailyMenu.recipes.forEach((recipe) => {
+        // 이미 초기화되었고 Map에 있으면 스킵
+        if (initializedRecipeIdsRef.current.has(recipe.id) && newMap.has(recipe.id)) return;
+        
+        const recipeSteps = new Set<string>();
+        recipe.steps.forEach((step) => {
+          if (completedSteps.has(step.id)) {
+            recipeSteps.add(step.id);
+          }
+        });
+        newMap.set(recipe.id, recipeSteps);
+        initializedRecipeIdsRef.current.add(recipe.id);
+      });
+      return newMap;
+    });
+  }, [dailyMenu.recipes, completedSteps]);
+
+  // 레시피별 완료된 단계 가져오기 (렌더링 시에만 사용)
+  const getCompletedStepsForRecipe = (recipeId: string): Set<string> => {
+    return completedStepsByRecipe.get(recipeId) || new Set();
+  };
+
+  // 모든 레시피의 재료를 통합 (오늘 필요한 총 재료)
+  const allIngredients = useMemo(() => {
+    const ingredientMap = new Map<string, Ingredient>();
+
+    dailyMenu.recipes.forEach((recipe) => {
+      const scale = dailyMenu.servings / recipe.baseServings;
+      recipe.ingredients.forEach((ing) => {
+        const key = `${ing.name}_${ing.unit}`;
+        if (ingredientMap.has(key)) {
+          const existing = ingredientMap.get(key)!;
+          existing.quantity += ing.quantity * scale;
+        } else {
+          ingredientMap.set(key, {
+            ...ing,
+            id: key,
+            quantity: ing.quantity * scale,
+          });
+        }
+      });
+    });
+
+    return Array.from(ingredientMap.values());
+  }, [dailyMenu]);
+
+  // completedStepsByRecipe 변경 시 상위 컴포넌트와 동기화
+  useEffect(() => {
+    const allSteps = new Set<string>();
+    completedStepsByRecipe.forEach((stepSet) => {
+      stepSet.forEach((stepId) => allSteps.add(stepId));
+    });
+    
+    // 실제로 변경된 경우에만 업데이트 (무한 루프 방지)
+    const currentStepsArray = Array.from(completedSteps).sort();
+    const newStepsArray = Array.from(allSteps).sort();
+    if (currentStepsArray.length !== newStepsArray.length || 
+        currentStepsArray.some((id, idx) => id !== newStepsArray[idx])) {
+      setCompletedSteps(allSteps);
+    }
+  }, [completedStepsByRecipe]);
 
   // 진행바 색상 배열
   const progressColors = [
@@ -72,94 +144,140 @@ export default function CookingView({
     });
   };
 
-  const toggleStep = (stepId: string, stepDuration?: number) => {
-    const stepInfo = findStepInRecipe(stepId);
-    if (!stepInfo) return;
+  const toggleStep = (stepId: string, stepDuration?: number, targetRecipeId?: string) => {
+    // 특정 레시피를 지정한 경우, 해당 레시피에서만 찾기
+    let stepInfo: { recipe: Recipe; step: RecipeStep; stepIndex: number } | null = null;
+    
+    if (targetRecipeId) {
+      // targetRecipeId가 지정된 경우, 해당 레시피에서만 찾기
+      const targetRecipe = dailyMenu.recipes.find((r) => r.id === targetRecipeId);
+      if (targetRecipe) {
+        const stepIndex = targetRecipe.steps.findIndex((s) => s.id === stepId);
+        if (stepIndex !== -1) {
+          stepInfo = {
+            recipe: targetRecipe,
+            step: targetRecipe.steps[stepIndex],
+            stepIndex,
+          };
+        }
+      }
+    } else {
+      // targetRecipeId가 없으면 전체 레시피에서 찾기
+      stepInfo = findStepInRecipe(stepId);
+    }
+    
+    if (!stepInfo) {
+      console.warn('Step not found:', stepId, targetRecipeId);
+      return;
+    }
 
     const { recipe, step, stepIndex } = stepInfo;
-    const newSet = new Set(completedSteps);
     
-    if (newSet.has(stepId)) {
-      // 체크 해제 시도
-      // 이전 단계들이 완료되어 있으면 체크 해제 불가
-      const hasLaterCompletedSteps = recipe.steps
-        .slice(stepIndex + 1)
-        .some((s) => completedSteps.has(s.id));
+    // 특정 레시피를 지정한 경우, 해당 레시피의 단계인지 확인 (이미 위에서 확인했지만 이중 체크)
+    if (targetRecipeId && recipe.id !== targetRecipeId) {
+      console.warn('Step does not belong to target recipe:', stepId, targetRecipeId, recipe.id);
+      return; // 다른 레시피의 단계이면 무시
+    }
+    
+    // 상태 업데이트 함수를 사용하여 최신 상태 가져오기
+    setCompletedStepsByRecipe((currentMap) => {
+      // 현재 레시피의 완료된 단계만 가져오기
+      const recipeCompletedSteps = currentMap.get(recipe.id) || new Set();
+      const newSet = new Set(recipeCompletedSteps);
       
-      if (hasLaterCompletedSteps) {
-        // 나중 단계가 완료되어 있으면 체크 해제 불가
-        return;
-      }
-      
-      // 체크 해제 가능
-      newSet.delete(stepId);
-      setRecentlyChecked((prev) => {
-        const newSet = new Set(prev);
+      if (newSet.has(stepId)) {
+        // 체크 해제 시도
+        // 이전 단계들이 완료되어 있으면 체크 해제 불가
+        const hasLaterCompletedSteps = recipe.steps
+          .slice(stepIndex + 1)
+          .some((s) => recipeCompletedSteps.has(s.id));
+        
+        if (hasLaterCompletedSteps) {
+          // 나중 단계가 완료되어 있으면 체크 해제 불가
+          return currentMap;
+        }
+        
+        // 체크 해제 가능
         newSet.delete(stepId);
-        return newSet;
-      });
-      // 타이머 정지
-      stopTimer(stepId);
-    } else {
-      // 체크 시도
-      // 이전 단계가 완료되지 않았으면 체크 불가 (순차적 체크)
-      const previousSteps = recipe.steps.slice(0, stepIndex);
-      const allPreviousCompleted = previousSteps.every((s) => completedSteps.has(s.id));
-      
-      if (!allPreviousCompleted && previousSteps.length > 0) {
-        // 이전 단계가 완료되지 않았으면 체크 불가
-        return;
-      }
-      
-      // 나중 단계를 체크하면 이전 단계들도 자동 체크
-      previousSteps.forEach((prevStep) => {
-        if (!newSet.has(prevStep.id)) {
-          newSet.add(prevStep.id);
+        
+        // 상태 업데이트
+        const updatedMap = new Map(currentMap);
+        updatedMap.set(recipe.id, newSet);
+        
+        // 사이드 이펙트는 상태 업데이트 후 처리
+        setTimeout(() => {
           setRecentlyChecked((prev) => {
             const newSet = new Set(prev);
-            newSet.add(prevStep.id);
-            setTimeout(() => {
-              setRecentlyChecked((current) => {
-                const updated = new Set(current);
-                updated.delete(prevStep.id);
-                return updated;
-              });
-            }, 500);
+            newSet.delete(stepId);
             return newSet;
           });
+          stopTimer(stepId);
+        }, 0);
+        
+        return updatedMap;
+      } else {
+        // 체크 시도
+        // 이전 단계가 완료되지 않았으면 체크 불가 (순차적 체크)
+        const previousSteps = recipe.steps.slice(0, stepIndex);
+        const allPreviousCompleted = previousSteps.every((s) => recipeCompletedSteps.has(s.id));
+        
+        if (!allPreviousCompleted && previousSteps.length > 0) {
+          // 이전 단계가 완료되지 않았으면 체크 불가
+          return currentMap;
         }
-      });
-      
-      // 현재 단계 체크
-      newSet.add(stepId);
-      setRecentlyChecked((prev) => {
-        const newSet = new Set(prev);
+        
+        // 나중 단계를 체크하면 이전 단계들도 자동 체크
+        const stepsToAdd: string[] = [];
+        previousSteps.forEach((prevStep) => {
+          if (!newSet.has(prevStep.id)) {
+            newSet.add(prevStep.id);
+            stepsToAdd.push(prevStep.id);
+          }
+        });
+        
+        // 현재 단계 체크
         newSet.add(stepId);
-        // 1초 후 애니메이션 제거
+        stepsToAdd.push(stepId);
+        
+        // 상태 업데이트
+        const updatedMap = new Map(currentMap);
+        updatedMap.set(recipe.id, newSet);
+        
+        // 사이드 이펙트는 상태 업데이트 후 처리
         setTimeout(() => {
-          setRecentlyChecked((current) => {
-            const updated = new Set(current);
-            updated.delete(stepId);
-            return updated;
+          // 애니메이션 효과
+          stepsToAdd.forEach((id) => {
+            setRecentlyChecked((prev) => {
+              const newSet = new Set(prev);
+              newSet.add(id);
+              setTimeout(() => {
+                setRecentlyChecked((current) => {
+                  const updated = new Set(current);
+                  updated.delete(id);
+                  return updated;
+                });
+              }, 500);
+              return newSet;
+            });
           });
-        }, 500);
-        return newSet;
-      });
-      
-      // 다음 버튼 클릭 시 finishedTimers에서 제거 (테두리 정상화)
-      setFinishedTimers((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(stepId);
-        return newSet;
-      });
-      
-      // 타이머 시작 (텍스트에 시간이 명시된 경우만)
-      const extractedDuration = extractDurationFromText(step.description);
-      if (extractedDuration) {
-        startTimer(stepId, extractedDuration);
+          
+          // 다음 버튼 클릭 시 finishedTimers에서 제거 (테두리 정상화)
+          setFinishedTimers((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(stepId);
+            return newSet;
+          });
+          
+          // 타이머 시작 (텍스트에 시간이 명시된 경우만)
+          const extractedDuration = stepDuration || extractDurationFromText(step.description);
+          if (extractedDuration) {
+            startTimer(stepId, extractedDuration);
+          }
+        }, 0);
+        
+        return updatedMap;
       }
-    }
-    setCompletedSteps(newSet);
+    });
   };
 
   const startTimer = (stepId: string, duration: number) => {
@@ -275,20 +393,50 @@ export default function CookingView({
     }
   }, []);
 
+  // props의 completedSteps 변경 시 레시피별 상태 동기화 (외부에서 변경된 경우만)
+  useEffect(() => {
+    // 현재 레시피별 상태와 비교
+    const currentAllSteps = new Set<string>();
+    completedStepsByRecipe.forEach((stepSet) => {
+      stepSet.forEach((stepId) => currentAllSteps.add(stepId));
+    });
+    
+    // props의 completedSteps와 다를 때만 업데이트 (무한 루프 방지)
+    const propsArray = Array.from(completedSteps).sort();
+    const currentArray = Array.from(currentAllSteps).sort();
+    if (propsArray.length !== currentArray.length || 
+        propsArray.some((id, idx) => id !== currentArray[idx])) {
+      const newMap = new Map<string, Set<string>>();
+      dailyMenu.recipes.forEach((recipe) => {
+        const recipeSteps = new Set<string>();
+        recipe.steps.forEach((step) => {
+          if (completedSteps.has(step.id)) {
+            recipeSteps.add(step.id);
+          }
+        });
+        newMap.set(recipe.id, recipeSteps);
+      });
+      setCompletedStepsByRecipe(newMap);
+    }
+  }, [completedSteps, dailyMenu.recipes]);
+
   const getRecipeProgress = (recipe: Recipe) => {
     const totalSteps = recipe.steps.length;
+    const recipeCompletedSteps = getCompletedStepsForRecipe(recipe.id);
     const completed = recipe.steps.filter((step) =>
-      completedSteps.has(step.id)
+      recipeCompletedSteps.has(step.id)
     ).length;
     return totalSteps > 0 ? (completed / totalSteps) * 100 : 0;
   };
 
   const getNextStep = (recipe: Recipe) => {
-    return recipe.steps.find((step) => !completedSteps.has(step.id));
+    const recipeCompletedSteps = getCompletedStepsForRecipe(recipe.id);
+    return recipe.steps.find((step) => !recipeCompletedSteps.has(step.id));
   };
 
   const allRecipesComplete = dailyMenu.recipes.every((recipe) => {
-    return recipe.steps.every((step) => completedSteps.has(step.id));
+    const recipeCompletedSteps = getCompletedStepsForRecipe(recipe.id);
+    return recipe.steps.every((step) => recipeCompletedSteps.has(step.id));
   });
 
   const formatTime = (seconds: number) => {
@@ -331,13 +479,14 @@ export default function CookingView({
     <div className="w-full">
       <div className="bg-transparent">
         {/* Progress Board - 항상 위에 고정, 2열 그리드 */}
-        <div className="sticky top-0 z-10 bg-white pt-4 pb-4 mb-8 border-b border-gray-200 shadow-sm">
+        <div className="sticky top-[1px] z-0 bg-white pt-4 pb-4 mb-8 border-b border-gray-200 shadow-sm">
           <div className="grid grid-cols-2 gap-4">
             {dailyMenu.recipes.map((recipe, index) => {
               const progress = getRecipeProgress(recipe);
               const nextStep = getNextStep(recipe);
               const isHighlighted = nextStep !== undefined;
-              const isRecipeComplete = recipe.steps.every((step) => completedSteps.has(step.id));
+              const recipeCompletedSteps = getCompletedStepsForRecipe(recipe.id);
+              const isRecipeComplete = recipe.steps.every((step) => recipeCompletedSteps.has(step.id));
               // 완료된 레시피는 초록색, 그 외는 기존 색상
               const color = isRecipeComplete ? '#10B981' : progressColors[index % progressColors.length];
               
@@ -394,8 +543,10 @@ export default function CookingView({
             const sortedRecipes = [...dailyMenu.recipes].sort((a, b) => {
               const aNextStep = getNextStep(a);
               const bNextStep = getNextStep(b);
-              const aIsComplete = a.steps.every((step) => completedSteps.has(step.id));
-              const bIsComplete = b.steps.every((step) => completedSteps.has(step.id));
+              const aCompletedSteps = getCompletedStepsForRecipe(a.id);
+              const bCompletedSteps = getCompletedStepsForRecipe(b.id);
+              const aIsComplete = a.steps.every((step) => aCompletedSteps.has(step.id));
+              const bIsComplete = b.steps.every((step) => bCompletedSteps.has(step.id));
               
               // 완료된 항목은 맨 아래로
               if (aIsComplete && !bIsComplete) return 1;
@@ -430,11 +581,98 @@ export default function CookingView({
             return sortedRecipes.map((recipe, index) => {
               const isExpanded = expandedRecipe === recipe.id;
               const nextStep = getNextStep(recipe);
-              const isRecipeComplete = recipe.steps.every((step) => completedSteps.has(step.id));
+              const recipeCompletedSteps = getCompletedStepsForRecipe(recipe.id);
+              const isRecipeComplete = recipe.steps.every((step) => recipeCompletedSteps.has(step.id));
+              
+              // 각 요리별 독립적인 핸들러 함수 생성
+              const handleNextStepClick = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                // 상태 업데이트 함수를 사용하여 최신 상태로 다음 단계 찾고 업데이트
+                setCompletedStepsByRecipe((currentMap) => {
+                  // 최신 완료 상태로 다음 단계 찾기
+                  const latestCompletedSteps = currentMap.get(recipe.id) || new Set();
+                  const nextStepForRecipe = recipe.steps.find((step) => !latestCompletedSteps.has(step.id));
+                  
+                  if (!nextStepForRecipe) return currentMap;
+                  
+                  // 다음 단계 정보 가져오기 (현재 레시피에서 직접 찾기)
+                  const stepIndex = recipe.steps.findIndex((s) => s.id === nextStepForRecipe.id);
+                  if (stepIndex === -1) return currentMap;
+                  
+                  const step = recipe.steps[stepIndex];
+                  const newSet = new Set(latestCompletedSteps);
+                  
+                  // 이전 단계가 완료되지 않았으면 체크 불가 (순차적 체크)
+                  const previousSteps = recipe.steps.slice(0, stepIndex);
+                  const allPreviousCompleted = previousSteps.every((s) => latestCompletedSteps.has(s.id));
+                  
+                  if (!allPreviousCompleted && previousSteps.length > 0) {
+                    return currentMap; // 체크 불가
+                  }
+                  
+                  // 나중 단계를 체크하면 이전 단계들도 자동 체크
+                  const stepsToAdd: string[] = [];
+                  previousSteps.forEach((prevStep) => {
+                    if (!newSet.has(prevStep.id)) {
+                      newSet.add(prevStep.id);
+                      stepsToAdd.push(prevStep.id);
+                    }
+                  });
+                  
+                  // 현재 단계 체크
+                  newSet.add(nextStepForRecipe.id);
+                  stepsToAdd.push(nextStepForRecipe.id);
+                  
+                  // 상태 업데이트
+                  const updatedMap = new Map(currentMap);
+                  updatedMap.set(recipe.id, newSet);
+                  
+                  // 사이드 이펙트는 상태 업데이트 후 처리
+                  setTimeout(() => {
+                    // 애니메이션 효과
+                    stepsToAdd.forEach((id) => {
+                      setRecentlyChecked((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.add(id);
+                        setTimeout(() => {
+                          setRecentlyChecked((current) => {
+                            const updated = new Set(current);
+                            updated.delete(id);
+                            return updated;
+                          });
+                        }, 500);
+                        return newSet;
+                      });
+                    });
+                    
+                    setFinishedTimers((prev) => {
+                      const newSet = new Set(prev);
+                      newSet.delete(nextStepForRecipe.id);
+                      return newSet;
+                    });
+                    
+                    // 타이머 시작
+                    const extractedDuration = extractDurationFromText(nextStepForRecipe.description);
+                    if (extractedDuration) {
+                      startTimer(nextStepForRecipe.id, extractedDuration);
+                    }
+                  }, 0);
+                  
+                  return updatedMap;
+                });
+              };
+              
+              const handleStepClick = (stepId: string, stepDuration?: number) => {
+                // toggleStep 함수 호출 (레시피 ID 명시)
+                toggleStep(stepId, stepDuration, recipe.id);
+              };
               
               // 이전 레시피가 완료되지 않았고 현재 레시피가 완료된 경우 구분선 추가
               const prevRecipe = index > 0 ? sortedRecipes[index - 1] : null;
-              const prevIsComplete = prevRecipe ? prevRecipe.steps.every((step) => completedSteps.has(step.id)) : false;
+              const prevCompletedSteps = prevRecipe ? getCompletedStepsForRecipe(prevRecipe.id) : new Set();
+              const prevIsComplete = prevRecipe ? prevRecipe.steps.every((step) => prevCompletedSteps.has(step.id)) : false;
               const showDivider = !prevIsComplete && isRecipeComplete;
               // 타이머가 필요한 단계이고, 타이머가 시작되었다가 끝났을 때만 타이머 종료로 판단
               const hasDuration = nextStep && extractDurationFromText(nextStep.description);
@@ -490,94 +728,74 @@ export default function CookingView({
                 }`}
                 style={timerActive ? { backgroundColor: '#EFF6FF' } : timerEnded ? { backgroundColor: '#FEF2F2' } : undefined}
                 >
-                  {/* 3단 구조: [펼쳐보기] [텍스트] [다음] - 버튼 위치 고정, 텍스트는 가운데 영역 */}
-                  <div className="flex items-center gap-4">
-                    {/* 왼쪽 고정: 레시피명 + 펼치기 chevron + 타이머 */}
-                    <div className="flex items-center gap-2 flex-shrink-0 min-w-[140px]">
-                      <span className="font-semibold truncate" style={{ color: '#1A1A1A' }}>
-                        {recipe.name}
-                      </span>
-                      <svg
-                        className={`w-5 h-5 transition-transform flex-shrink-0 ${
-                          isExpanded ? 'rotate-180' : ''
-                        }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                      {nextStep && timers.has(nextStep.id) && (
-                        <span className="text-sm font-mono font-semibold flex-shrink-0" style={{ color: '#1A1A1A' }}>
-                          {formatTime(timers.get(nextStep.id)!.remaining)}
+                  {/* 세로 구조: 요리명 줄 + 조리단계 설명 줄 */}
+                  <div className="space-y-2">
+                    {/* 첫 번째 줄: 요리명 + 펼치기 chevron + 타이머 + 다음 버튼 */}
+                    <div className="flex items-center gap-4">
+                      {/* 왼쪽: 레시피명 + 펼치기 chevron + 타이머 */}
+                      <div className="flex items-center gap-2 flex-shrink-0 flex-1 min-w-0">
+                        <span className="font-semibold truncate" style={{ color: '#1A1A1A' }}>
+                          {recipe.name}
                         </span>
-                      )}
-                      {nextStep && extractDurationFromText(nextStep.description) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const extractedDuration = extractDurationFromText(nextStep.description);
-                            if (extractedDuration) {
-                              if (timers.has(nextStep.id)) {
-                                stopTimer(nextStep.id);
-                              } else {
-                                startTimer(nextStep.id, extractedDuration);
-                              }
-                            }
-                          }}
-                          className={`p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0 ${
-                            timers.has(nextStep.id) ? 'text-[#4D99CC]' : 'text-gray-400'
+                        <svg
+                          className={`w-5 h-5 transition-transform flex-shrink-0 ${
+                            isExpanded ? 'rotate-180' : ''
                           }`}
-                          title={timers.has(nextStep.id) ? '타이머 정지' : '타이머 시작'}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                    {/* 가운데: 조리 단계 텍스트 (좌우 여백으로 버튼과 분리) */}
-                    <div className="flex-1 min-w-0 pl-8 pr-4 flex items-center">
-                      {isRecipeComplete ? (
-                        <span className="text-sm text-gray-600">완료</span>
-                      ) : nextStep ? (() => {
-                        const stepInfo = findStepInRecipe(nextStep.id);
-                        const recipe = stepInfo?.recipe;
-                        const scaledDescription = recipe 
-                          ? scaleStepDescription(nextStep.description, recipe.baseServings, dailyMenu.servings)
-                          : nextStep.description;
-                        return (
-                          <span className="text-sm font-medium text-gray-900 break-words leading-relaxed">
-                            {nextStep.order}단계 - {scaledDescription}
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                        {nextStep && timers.has(nextStep.id) && (
+                          <span className="text-sm font-mono font-semibold flex-shrink-0" style={{ color: '#1A1A1A' }}>
+                            {formatTime(timers.get(nextStep.id)!.remaining)}
                           </span>
-                        );
-                      })() : null}
-                    </div>
-                    {/* 오른쪽 고정: 다음 버튼 (SVG) */}
-                    <div className="flex-shrink-0 w-[60px] flex justify-end">
-                      {nextStep && (() => {
-                        // 현재 레시피의 nextStep인지 확인
-                        const currentRecipeNextStep = recipe.steps.find((s) => s.id === nextStep.id);
-                        // 현재 레시피의 다음 단계가 맞는지 확인
-                        const isCurrentRecipeStep = currentRecipeNextStep !== undefined;
-                        
-                        return isCurrentRecipeStep ? (
+                        )}
+                        {nextStep && extractDurationFromText(nextStep.description) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              e.preventDefault();
-                              const stepInfo = findStepInRecipe(nextStep.id);
-                              if (stepInfo && stepInfo.recipe.id === recipe.id) {
-                                const { step } = stepInfo;
-                                const extractedDuration = extractDurationFromText(step.description);
-                                toggleStep(nextStep.id, extractedDuration || undefined);
+                              const extractedDuration = extractDurationFromText(nextStep.description);
+                              if (extractedDuration) {
+                                if (timers.has(nextStep.id)) {
+                                  stopTimer(nextStep.id);
+                                } else {
+                                  startTimer(nextStep.id, extractedDuration);
+                                }
                               }
                             }}
+                            className={`p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0 ${
+                              timers.has(nextStep.id) ? 'text-[#4D99CC]' : 'text-gray-400'
+                            }`}
+                            title={timers.has(nextStep.id) ? '타이머 정지' : '타이머 시작'}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                      {/* 오른쪽 고정: 다음 버튼 (SVG) */}
+                      <div className="flex-shrink-0">
+                      {(() => {
+                        // 현재 레시피의 다음 단계를 직접 계산 (레시피별 완료 상태 사용)
+                        const recipeCompletedSteps = getCompletedStepsForRecipe(recipe.id);
+                        const currentRecipeNextStep = recipe.steps.find((step) => !recipeCompletedSteps.has(step.id));
+                        
+                        if (!currentRecipeNextStep) return null;
+                        
+                        // 현재 레시피 ID를 클로저에 저장
+                        const currentRecipeId = recipe.id;
+                        
+                        return (
+                          <button
+                            onClick={handleNextStepClick}
                             className="p-2 bg-[#4D99CC] text-white rounded-lg hover:bg-[#3d89bc] transition-colors shadow-sm flex items-center justify-center"
                             style={{ minWidth: '48px', minHeight: '48px' }}
                             title="다음"
@@ -596,9 +814,32 @@ export default function CookingView({
                               />
                             </svg>
                           </button>
-                        ) : null;
+                        );
                       })()}
+                      </div>
                     </div>
+                    {/* 두 번째 줄: 조리단계 설명 */}
+                    {!isRecipeComplete && nextStep && (
+                      <div className="pt-1">
+                        {(() => {
+                          const stepInfo = findStepInRecipe(nextStep.id);
+                          const recipeForStep = stepInfo?.recipe;
+                          const scaledDescription = recipeForStep 
+                            ? scaleStepDescription(nextStep.description, recipeForStep.baseServings, dailyMenu.servings)
+                            : nextStep.description;
+                          return (
+                            <span className="text-sm font-medium text-gray-900 break-words leading-relaxed">
+                              {nextStep.order}단계 - {scaledDescription}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    {isRecipeComplete && (
+                      <div className="pt-1">
+                        <span className="text-sm text-gray-600">완료</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -606,30 +847,56 @@ export default function CookingView({
                   <div className={`px-6 py-4 border-t border-gray-200 ${
                     isRecipeComplete ? 'bg-gray-100' : 'bg-gray-50'
                   }`}>
+                    {/* 각 요리별 필요한 재료 */}
+                    <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
+                      <h4 className="font-semibold mb-3 text-gray-900">{recipe.name} 재료</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {recipe.ingredients.map((ingredient) => {
+                          const scale = dailyMenu.servings / recipe.baseServings;
+                          const scaledQuantity = ingredient.quantity * scale;
+                          const displayQuantity = scaledQuantity % 1 === 0 
+                            ? scaledQuantity.toString() 
+                            : scaledQuantity.toFixed(1);
+                          return (
+                            <div
+                              key={ingredient.id}
+                              className="flex justify-between items-center gap-2 p-2 rounded bg-gray-50"
+                            >
+                              <span className="font-medium text-sm text-gray-900 truncate">
+                                {ingredient.name}
+                              </span>
+                              <span className="text-sm text-gray-700 flex-shrink-0">
+                                {displayQuantity} {ingredient.unit}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
                     <div className="space-y-4">
                       {recipe.steps.map((step, stepIndex) => {
-                        const isStepCompleted = completedSteps.has(step.id);
+                        const recipeCompletedSteps = getCompletedStepsForRecipe(recipe.id);
+                        const isStepCompleted = recipeCompletedSteps.has(step.id);
                         const isNextStep = nextStep?.id === step.id;
                         const timer = timers.get(step.id);
                         const wasJustChecked = recentlyChecked.has(step.id);
                         
                         // 이전 단계 완료 여부 확인
                         const previousSteps = recipe.steps.slice(0, stepIndex);
-                        const allPreviousCompleted = previousSteps.every((s) => completedSteps.has(s.id));
+                        const allPreviousCompleted = previousSteps.every((s) => recipeCompletedSteps.has(s.id));
                         const canCheck = allPreviousCompleted || previousSteps.length === 0;
                         
                         // 나중 단계가 완료되어 있으면 체크 해제 불가
                         const laterSteps = recipe.steps.slice(stepIndex + 1);
-                        const hasLaterCompletedSteps = laterSteps.some((s) => completedSteps.has(s.id));
+                        const hasLaterCompletedSteps = laterSteps.some((s) => recipeCompletedSteps.has(s.id));
                         const canUncheck = !hasLaterCompletedSteps;
                         
                         return (
                           <div
                             key={step.id}
                             onClick={() => {
-                              if (isStepCompleted && !canUncheck) return; // 체크 해제 불가
-                              if (!isStepCompleted && !canCheck) return; // 체크 불가
-                              toggleStep(step.id, step.duration);
+                              handleStepClick(step.id, step.duration);
                             }}
                             className={`flex items-start gap-3 p-3 rounded-lg transition-all ${
                               !canCheck && !isStepCompleted
@@ -654,9 +921,7 @@ export default function CookingView({
                                 } ${wasJustChecked ? 'checkbox-animate' : ''}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (isStepCompleted && !canUncheck) return; // 체크 해제 불가
-                                  if (!isStepCompleted && !canCheck) return; // 체크 불가
-                                  toggleStep(step.id, step.duration);
+                                  handleStepClick(step.id, step.duration);
                                 }}
                               >
                                 {isStepCompleted && (
@@ -754,11 +1019,11 @@ export default function CookingView({
           })()}
         </div>
 
-        {/* 조리 완료 플로팅 버튼 - 네비게이션 바로 위 (요리시작 버튼과 같은 위치) */}
+        {/* 조리 완료 플로팅 버튼 - 화면 바닥에서 살짝 띄움 */}
         <div 
           className="fixed left-0 right-0 z-50 px-4"
           style={{ 
-            bottom: `calc(70px + 25px + env(safe-area-inset-bottom, 0px))`,
+            bottom: '20px',
             paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
